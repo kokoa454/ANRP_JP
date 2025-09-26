@@ -26,7 +26,7 @@ class LICENSE_PLATE:
 
         print("生成完了")
 
-    def getPlateBackGroundColor(typeOfVehicle):
+    def getPlateBackGroundColor(self, typeOfVehicle):
         colorList = [
             ("white", (255, 255, 255)),  # 普通（自家用）
             ("green", (0, 128, 0)),      # 普通（事業用）
@@ -34,9 +34,9 @@ class LICENSE_PLATE:
             ("black", (0, 0, 0))         # 軽（事業用）
         ]
 
-        return colorList[typeOfVehicle[1]]
+        return colorList[typeOfVehicle]
 
-    def getPlateTextColor(typeOfVehicle):
+    def getPlateTextColor(self, typeOfVehicle):
         colorList = [
             ("green", (0, 128, 0)),      # 普通（自家用）
             ("white", (255, 255, 255)),  # 普通（事業用）
@@ -44,9 +44,9 @@ class LICENSE_PLATE:
             ("yellow", (255, 255, 0))    # 軽（事業用）
         ]
 
-        return colorList[typeOfVehicle[1]]
+        return colorList[typeOfVehicle]
     
-    def getOfficeCode():
+    def getOfficeCode(self):
         officeCodeList = [
             # 北海道
             "札幌","函館","旭川","室蘭","苫小牧","釧路","知床","帯広","十勝","北見",
@@ -106,9 +106,9 @@ class LICENSE_PLATE:
 
         return random.choice(officeCodeList)
 
-    def getClassNumber(typeOfVehicle):
+    def getClassNumber(self, typeOfVehicle):
         if typeOfVehicle == 0 or typeOfVehicle == 1:  # 普通車
-            classNumber = str(random.randint(1, 2, 3, 8, 9, 0))
+            classNumber = str(random.choice([1, 2, 3, 8, 9, 0]))
 
             if random.randint(0, 1) == 0: # 数字分類番号
                 classNumber += str(random.randint(0, 99))
@@ -121,7 +121,7 @@ class LICENSE_PLATE:
                 classNumber += random.choice(alphabetList)
 
         else:  # 軽自動車
-            classNumber = str(random.randint(4, 5, 6, 7, 8))
+            classNumber = str(random.choice([4, 5, 6, 7, 8]))
 
             if random.randint(0, 1) == 0: # 数字分類番号
                 classNumber += str(random.randint(80, 82))
@@ -133,7 +133,7 @@ class LICENSE_PLATE:
 
         return classNumber
 
-    def getHiraganaCode(typeOfVehicle):
+    def getHiraganaCode(self, typeOfVehicle):
         if typeOfVehicle == 0: # 普通（自家用）
             hiraganaList = ["さ", "す", "せ", "そ", "た", "ち", "つ", "て", "と", "な", "に", "ぬ", "ね", "の", "は", "ひ", "ふ", "ほ", "ま", "み", "む", "め", "も", "や", "ゆ", "ら", "り", "る", "ろ"]
             hiraganaCode = random.choice(hiraganaList)
@@ -143,13 +143,34 @@ class LICENSE_PLATE:
             hiraganaCode = random.choice(hiraganaList)
 
         elif typeOfVehicle == 2: # 軽（自家用）
-            # TODO: 軽自動車の自家用のひらがなコードを追加
+            hiraganaList = ["あ", "い", "う", "え", "お", "か", "き", "く", "け", "こ", "さ", "す", "せ", "そ", "た", "ち", "つ", "て", "と", "な", "に", "ぬ", "ね", "の", "は", "ひ", "ふ", "ほ", "ま", "み", "む", "め", "も", "や", "ゆ", "よ", "ら", "る", "ろ", "を"]
+            hiraganaCode = random.choice(hiraganaList)
+
+        else: # 軽（事業用）
+            hiraganaList = ["り", "れ", "わ"]
+            hiraganaCode = random.choice(hiraganaList)
 
         return hiraganaCode
 
-    def getRegistrationNumber():
+    def getRegistrationNumber(self):
+        registrationNumber = str(random.randint(0, 9))
+        registrationNumber += str(random.randint(0, 9))
+        registrationNumber += "-"
+        registrationNumber += str(random.randint(0, 9))
+        registrationNumber += str(random.randint(0, 9))
 
-    def createPlate(plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber):
+        return registrationNumber
+
+    def createPlate(self, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber):
+        print(f"""
+        +---------------------+
+        | {officeCode}       |
+        |                     |
+        |  {classNumber} {hiraganaCode} {registrationNumber}  |
+        +---------------------+
+        背景色: {plateBackGroundColor[0]} (RGB: {plateBackGroundColor[1]})
+        文字色: {plateTextColor[0]} (RGB: {plateTextColor[1]})
+        """)
 
 
 def main():
@@ -161,7 +182,10 @@ def main():
         1: 普通（事業用）
         2: 軽（自家用）
         3: 軽（事業用）
-    )""")
+    )\n""")
     typeOfVehicle = input("車種?: ")
 
     LICENSE_PLATE(trainingNumber, typeOfVehicle)
+
+if __name__ == "__main__":
+    main()
