@@ -237,6 +237,9 @@ class LICENSE_PLATE:
         thicknessForOfficeCode = 1.2
         positionForOfficeCode = (100, 10)
 
+        if len(officeCode) < 2:
+            positionForOfficeCode = (120, 10)
+
         if len(officeCode) >= 3:
             # 文字サイズを取得するために一時描画用画像を作る
             dummy_img = Image.new("RGB", (1,1))
@@ -320,9 +323,15 @@ class LICENSE_PLATE:
             draw.text(positionForClassNumber, classNumber, font=fontForClassNumber, stroke_width=int(thicknessForClassNumber), fill=plateTextColor[1])
 
         # ひらがな
-        fontSizeForHiraganaCode = 55
-        positionForHiraganaCode = (20, 110)
-        fontHiraganaCode = ImageFont.truetype(font2, fontSizeForHiraganaCode)
+        if hiraganaCode in ["あ", "い", "う", "か", "き", "く", "け", "こ", "せ", "を"]:
+            positionForHiraganaCode = (16, 55)
+            fontSizeForHiraganaCode = 180
+            fontHiraganaCode = ImageFont.truetype(font1, fontSizeForHiraganaCode)
+        else:
+            positionForHiraganaCode = (20, 110)
+            fontSizeForHiraganaCode = 55
+            fontHiraganaCode = ImageFont.truetype(font2, fontSizeForHiraganaCode)
+
         draw.text(positionForHiraganaCode, hiraganaCode, font=fontHiraganaCode, fill=plateTextColor[1])
 
         # プレート番号
@@ -351,7 +360,12 @@ class LICENSE_PLATE:
 
 
 def main():
-    trainingNumber = input("生成数?: ")
+    while True:
+        try:
+            trainingNumber = int(input("車両数?: "))
+            break
+        except ValueError:
+            print("数字を入力してください。\n")
 
     print("""
         \n車種 (
@@ -360,7 +374,16 @@ def main():
         2: 軽（自家用）
         3: 軽（事業用）
     )\n""")
-    typeOfVehicle = input("車種?: ")
+    
+    while True:
+        try:
+            typeOfVehicle = int(input("車種は?: "))
+            if typeOfVehicle in [0, 1, 2, 3]:
+                break
+            else:
+                print("0~3の数字を入力してください。\n")
+        except ValueError:
+            print("数字を入力してください。\n")
 
     LICENSE_PLATE(trainingNumber, typeOfVehicle)
 
