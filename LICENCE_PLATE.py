@@ -233,9 +233,9 @@ class LICENSE_PLATE:
         )
 
         # 地名
-        fontOfficeCode = ImageFont.truetype(font0, 50)
+        fontOfficeCode = ImageFont.truetype(font0, 55)
         thicknessForOfficeCode = 1.2
-        positionForOfficeCode = (100, 10)
+        positionForOfficeCode = (105, 10)
 
         if len(officeCode) < 2:
             positionForOfficeCode = (120, 10)
@@ -270,34 +270,15 @@ class LICENSE_PLATE:
             draw.text(positionForOfficeCode, officeCode, font=fontOfficeCode, stroke_width=int(thicknessForOfficeCode), fill=plateTextColor[1])
 
         # 分類番号
-        fontForClassNumber = ImageFont.truetype(font0, 50)
+        fontForClassNumber = ImageFont.truetype(font0, 58)
         thicknessForClassNumber = 1.2
-        positionForClassNumber = (240, 10) 
+        positionForClassNumber = (230, 10) 
 
         if len(classNumber) == 2:
-            # 文字サイズを取得
-            dummy_img = Image.new("RGB", (1,1))
-            dummy_draw = ImageDraw.Draw(dummy_img)
-            bbox = dummy_draw.textbbox((0,0), classNumber, font=fontForClassNumber, stroke_width=int(thicknessForClassNumber))
-            text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
+            positionForClassNumber = (260, 10)
+            draw.text(positionForClassNumber, classNumber, font=fontForClassNumber, stroke_width=int(thicknessForClassNumber), fill=plateTextColor[1])
 
-            # 上下に余白を追加
-            padding = 10
-            text_img = Image.new("RGBA", (text_width, text_height + padding), (0,0,0,0))
-            text_draw = ImageDraw.Draw(text_img)
-            text_draw.text((0, 0), classNumber, font=fontForClassNumber, stroke_width=int(thicknessForClassNumber), fill=plateTextColor[1])
-
-            # 横方向だけ拡大
-            compress_ratio = 1.2
-            new_width = int(text_img.width * compress_ratio)
-            text_img = text_img.resize((new_width, text_img.height), Image.Resampling.LANCZOS)
-
-            # 元画像に貼り付け
-            positionForClassNumber = (265, 10)
-            img.paste(text_img, positionForClassNumber, text_img)
-
-        elif "M" in classNumber or "W" in classNumber:
+        elif "M" in classNumber or "W" in classNumber or "H" in classNumber or "X" in classNumber:
             # 文字サイズを取得
             dummy_img = Image.new("RGB", (1,1))
             dummy_draw = ImageDraw.Draw(dummy_img)
