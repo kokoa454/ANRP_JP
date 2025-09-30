@@ -3,6 +3,7 @@ __package__ = "LICENSE_PLATE"
 import random
 from PIL import Image, ImageDraw, ImageFont
 import os
+import json
 
 class LICENSE_PLATE:
     # 車種 (
@@ -13,11 +14,13 @@ class LICENSE_PLATE:
     # )
 
     LICENSE_PLATE_DIR = "./license_plate_images"
+    typeOfVehicleString = ["普通_自家用", "普通_事業用", "軽_自家用", "軽_事業用"]
 
     def __init__(self, trainingNumber, typeOfVehicle):
         trainingNumber = int(trainingNumber)
         typeOfVehicle = int(typeOfVehicle)
         completedNumber = 0
+        metaData = {"imagePath": []}
         
         print("\n生成中...")
 
@@ -31,9 +34,12 @@ class LICENSE_PLATE:
 
             completedNumber += 1
 
-            self.createPlate(completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber)
+            self.createPlate(completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
 
             trainingNumber -= 1
+
+        with open(LICENSE_PLATE.LICENSE_PLATE_DIR  + f"/{self.typeOfVehicleString[typeOfVehicle]}/metaData.json", "w", encoding="utf-8") as f:
+            json.dump(metaData, f, ensure_ascii=False)
 
         print("\n生成完了")
 
@@ -200,7 +206,7 @@ class LICENSE_PLATE:
 
         return registrationNumber
 
-    def createPlate(self, completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber):
+    def createPlate(self, completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData):
         # print(f"""
         # +-------------------------------------+
         # |     {officeCode}  {classNumber}     |
@@ -330,19 +336,12 @@ class LICENSE_PLATE:
         fontRegistrationNumber = ImageFont.truetype(font1, fontSizeForRegistrationNumber)
         draw.text(positionForRegistrationNumber, registrationNumber, font=fontRegistrationNumber, fill=plateTextColor[1])
 
-        if not os.path.exists(self.LICENSE_PLATE_DIR):
-            os.makedirs(self.LICENSE_PLATE_DIR)
+        os.makedirs(self.LICENSE_PLATE_DIR, exist_ok=True)
 
-        if typeOfVehicle == 0:
-            typeOfVehicle = "普通_自家用"
-        elif typeOfVehicle == 1:
-            typeOfVehicle = "普通_事業用"
-        elif typeOfVehicle == 2:
-            typeOfVehicle = "軽_自家用"
-        else:
-            typeOfVehicle = "軽_事業用"
+        os.makedirs(self.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}", exist_ok=True)
 
-        if not os.path.exists(self.LICENSE_PLATE_DIR + f"/{typeOfVehicle}"):
-            os.makedirs(self.LICENSE_PLATE_DIR + f"/{typeOfVehicle}")
+        metaData["imagePath"].append(f"{self.LICENSE_PLATE_DIR}/{self.typeOfVehicleString[typeOfVehicle]}/{completedNumber}.png")
 
-        return img.save(self.LICENSE_PLATE_DIR + f"/{typeOfVehicle}/{completedNumber}.png")
+        img.save(self.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}/{completedNumber}.png")
+
+        return
