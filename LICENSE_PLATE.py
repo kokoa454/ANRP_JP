@@ -12,9 +12,14 @@ class LICENSE_PLATE:
     #     3: 軽（事業用）
     # )
 
+    LICENSE_PLATE_DIR = "./license_plate_images"
+
     def __init__(self, trainingNumber, typeOfVehicle):
         trainingNumber = int(trainingNumber)
         typeOfVehicle = int(typeOfVehicle)
+        completedNumber = 0
+        
+        print("\n生成中...")
 
         while(trainingNumber > 0):
             plateBackGroundColor = self.getPlateBackGroundColor(typeOfVehicle)
@@ -24,7 +29,9 @@ class LICENSE_PLATE:
             hiraganaCode = self.getHiraganaCode(typeOfVehicle)
             registrationNumber = self.getRegistrationNumber()
 
-            self.createPlate(typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber)
+            completedNumber += 1
+
+            self.createPlate(completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber)
 
             trainingNumber -= 1
 
@@ -193,7 +200,7 @@ class LICENSE_PLATE:
 
         return registrationNumber
 
-    def createPlate(self, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber):
+    def createPlate(self, completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber):
         # print(f"""
         # +-------------------------------------+
         # |     {officeCode}  {classNumber}     |
@@ -323,8 +330,8 @@ class LICENSE_PLATE:
         fontRegistrationNumber = ImageFont.truetype(font1, fontSizeForRegistrationNumber)
         draw.text(positionForRegistrationNumber, registrationNumber, font=fontRegistrationNumber, fill=plateTextColor[1])
 
-        if not os.path.exists("./output"):
-            os.makedirs("./output")
+        if not os.path.exists(self.LICENSE_PLATE_DIR):
+            os.makedirs(self.LICENSE_PLATE_DIR)
 
         if typeOfVehicle == 0:
             typeOfVehicle = "普通_自家用"
@@ -335,7 +342,7 @@ class LICENSE_PLATE:
         else:
             typeOfVehicle = "軽_事業用"
 
-        if not os.path.exists(f"./output/{typeOfVehicle}"):
-            os.makedirs(f"./output/{typeOfVehicle}")
+        if not os.path.exists(self.LICENSE_PLATE_DIR + f"/{typeOfVehicle}"):
+            os.makedirs(self.LICENSE_PLATE_DIR + f"/{typeOfVehicle}")
 
-        return img.save(f"./output/{typeOfVehicle}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
+        return img.save(self.LICENSE_PLATE_DIR + f"{completedNumber}/.png")
