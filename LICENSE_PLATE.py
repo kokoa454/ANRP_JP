@@ -345,4 +345,4 @@ class LICENSE_PLATE:
         if not os.path.exists(self.LICENSE_PLATE_DIR + f"/{typeOfVehicle}"):
             os.makedirs(self.LICENSE_PLATE_DIR + f"/{typeOfVehicle}")
 
-        return img.save(self.LICENSE_PLATE_DIR + f"{completedNumber}/.png")
+        return img.save(self.LICENSE_PLATE_DIR + f"/{typeOfVehicle}/{completedNumber}.png")
