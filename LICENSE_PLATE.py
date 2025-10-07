@@ -24,7 +24,7 @@ class LICENSE_PLATE:
         
         print("\n生成中...")
 
-        while(trainingNumber > 0):
+        while trainingNumber > 0:
             plateBackGroundColor = self.getPlateBackGroundColor(typeOfVehicle)
             plateTextColor = self.getPlateTextColor(typeOfVehicle)
             officeCode = self.getOfficeCode()
@@ -34,7 +34,7 @@ class LICENSE_PLATE:
 
             completedNumber += 1
 
-            self.createPlate(completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
+            self.generatePlate(completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
 
             trainingNumber -= 1
 
@@ -206,7 +206,7 @@ class LICENSE_PLATE:
 
         return registrationNumber
 
-    def createPlate(self, completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData):
+    def generatePlate(self, completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData):
         # print(f"""
         # +-------------------------------------+
         # |     {officeCode}  {classNumber}     |
