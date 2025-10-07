@@ -39,7 +39,7 @@ def main():
                     print("0~3の数字を入力してください。\n")
                     continue
             except ValueError:
-                print("数字を入力してください。\n")
+                print("正しい数字を入力してください。\n")
                 continue
 
             LICENSE_PLATE.LICENSE_PLATE(trainingNumber, typeOfVehicle)
@@ -66,7 +66,7 @@ def main():
                     print("0~3の数字を入力してください。\n")
                     continue
             except ValueError:
-                print("数字を入力してください。\n")
+                print("正しい数字を入力してください。\n")
                 continue
 
             DATA_SET.DATA_SET(trainingNumber, typeOfVehicle)
