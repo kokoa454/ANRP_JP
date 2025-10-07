@@ -3,6 +3,7 @@ __package__ = "LICENSE_PLATE"
 import random
 from PIL import Image, ImageDraw, ImageFont
 import os
+import shutil
 import json
 
 class LICENSE_PLATE:
@@ -19,10 +20,15 @@ class LICENSE_PLATE:
     def __init__(self, trainingNumber, typeOfVehicle):
         trainingNumber = int(trainingNumber)
         typeOfVehicle = int(typeOfVehicle)
-        completedNumber = 0
         metaData = {"imagePath": []}
+
+        if os.path.exists(LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}"):
+            print("\n前回のナンバープレートを削除します。")
+            shutil.rmtree(LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}")
+            print("前回のナンバープレートを削除しました。")
+            os.makedirs(LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}")
         
-        print("\n生成中...")
+        print("\nナンバープレート生成中...")
 
         while trainingNumber > 0:
             plateBackGroundColor = self.getPlateBackGroundColor(typeOfVehicle)
@@ -32,16 +38,14 @@ class LICENSE_PLATE:
             hiraganaCode = self.getHiraganaCode(typeOfVehicle)
             registrationNumber = self.getRegistrationNumber()
 
-            completedNumber += 1
-
-            self.generatePlate(completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
+            self.generatePlate(typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
 
             trainingNumber -= 1
 
         with open(LICENSE_PLATE.LICENSE_PLATE_DIR  + f"/{self.typeOfVehicleString[typeOfVehicle]}/metaData.json", "w", encoding="utf-8") as f:
             json.dump(metaData, f, ensure_ascii=False)
 
-        print("\n生成完了")
+        print("\nナンバープレート生成完了")
 
     def getPlateBackGroundColor(self, typeOfVehicle):
         colorList = [
@@ -206,7 +210,7 @@ class LICENSE_PLATE:
 
         return registrationNumber
 
-    def generatePlate(self, completedNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData):
+    def generatePlate(self, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData):
         # print(f"""
         # +-------------------------------------+
         # |     {officeCode}  {classNumber}     |
@@ -340,8 +344,8 @@ class LICENSE_PLATE:
 
         os.makedirs(self.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}", exist_ok=True)
 
-        metaData["imagePath"].append(f"{self.LICENSE_PLATE_DIR}/{self.typeOfVehicleString[typeOfVehicle]}/{completedNumber}.png")
+        metaData["imagePath"].append(f"{self.LICENSE_PLATE_DIR}/{self.typeOfVehicleString[typeOfVehicle]}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
 
-        img.save(self.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}/{completedNumber}.png")
+        img.save(self.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
 
         return

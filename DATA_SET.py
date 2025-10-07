@@ -7,6 +7,7 @@ import random
 import json
 from PIL import Image
 import sys
+import shutil
 import os
 
 class DATA_SET:
@@ -18,14 +19,31 @@ class DATA_SET:
     def __init__(self, trainingNumber, typeOfVehicle):
         trainingNumber = int(trainingNumber)
         typeOfVehicle = int(typeOfVehicle)
+        
+        if os.path.exists(self.BACKGROUND_IMAGE_DIR):
+            print("\n前回の背景画像を削除します。")
+            shutil.rmtree(self.BACKGROUND_IMAGE_DIR)
+            print("前回の背景画像を削除しました。")
+            os.makedirs(self.BACKGROUND_IMAGE_DIR)
+
+        if os.path.exists(self.DATA_SET_IMAGES_DIR):
+            print("\n前回のデータセットを削除します。")
+            shutil.rmtree(self.DATA_SET_IMAGES_DIR)
+            shutil.rmtree(self.DATA_SET_LABELS_DIR)
+            print("前回のデータセットを削除しました。")
+            os.makedirs(self.DATA_SET_IMAGES_DIR)
+            os.makedirs(self.DATA_SET_LABELS_DIR)
 
         self.downloadBackgroundImage(trainingNumber)
 
+        print("\nデータセットを生成中...")
         while trainingNumber > 0:
-            # self.backgroundImagePath = self.pickBackgroundImage()
+            self.backgroundImagePath = self.pickBackgroundImage()
             self.licensePlatePaths = self.pickLicensePlates(typeOfVehicle)
             self.dataSet = self.createDataSet(self.backgroundImagePath, self.licensePlatePaths)
             trainingNumber -= 1
+
+        print("\nデータセットを生成完了")
 
     def downloadBackgroundImage(self, trainingNumber):
         metaData = {"imagePath": []}
@@ -55,7 +73,24 @@ class DATA_SET:
             json.dump(metaData, f, ensure_ascii=False)
 
         print("\n背景画像をダウンロード完了")
+
+        return
     
+    def pickBackgroundImage(self):
+        try:
+            f = open(self.BACKGROUND_IMAGE_DIR + "/metaData.json", "r", encoding="utf-8")
+            metaData = json.load(f)
+
+            print("\n背景画像の選択中...")
+            backgroundImage = random.choice(metaData["imagePath"])
+            print("\n背景画像の選択完了")
+
+            return backgroundImage
+
+        except FileNotFoundError:
+            print("ERROR: 背景画像をダウンロードしてください。")
+            sys.exit()
+
     def pickLicensePlates(self, typeOfVehicle):
         licensePlatePaths = []
         
@@ -63,7 +98,7 @@ class DATA_SET:
             f = open(LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{LICENSE_PLATE.LICENSE_PLATE.typeOfVehicleString[typeOfVehicle]}/metaData.json", "r", encoding="utf-8")
             metaData = json.load(f)
 
-            print("\nナンバープレートを選択中...")
+            print("\nナンバープレートの選択中...")
 
             licensePlateNumber = random.randint(1, self.MAX_LICENSE_PLATES_PER_IMAGE + 1)
 
@@ -71,11 +106,10 @@ class DATA_SET:
                 licensePlatePaths += random.choice(metaData["imagePath"]).split(",")
                 licensePlateNumber -= 1
 
-            print("\nナンバープレートを選択完了")
+            print("\nナンバープレートの選択完了")
         
         except FileNotFoundError:
-            print("ナンバープレートの作成に失敗しました。")
-            print("ナンバープレートを生成してください。")
+            print("ERROR: ナンバープレートを生成してください。")
             sys.exit()
 
         return licensePlatePaths
