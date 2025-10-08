@@ -16,6 +16,8 @@ class LICENSE_PLATE:
 
     LICENSE_PLATE_DIR = "./license_plate_images"
     typeOfVehicleString = ["普通_自家用", "普通_事業用", "軽_自家用", "軽_事業用"]
+    LICENSE_PLATE_WIDTH = 440
+    LICENSE_PLATE_HEIGHT = 220
 
     def __init__(self, trainingNumber, typeOfVehicle):
         trainingNumber = int(trainingNumber)
@@ -222,8 +224,8 @@ class LICENSE_PLATE:
         # 文字色: {plateTextColor[0]} (RGB: {plateTextColor[1]})
         # """)
 
-        height = 220
-        width = 440
+        height = self.LICENSE_PLATE_HEIGHT
+        width = self.LICENSE_PLATE_WIDTH
         margin = 4
         radius = 6
         font0 = "./fonts/HiraginoMaruGothicProNW4.otf"
