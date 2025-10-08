@@ -29,12 +29,17 @@ class DATA_SET:
         os.makedirs(self.BACKGROUND_IMAGE_DIR)
 
         if os.path.exists(self.DATA_SET_IMAGES_DIR):
-            print("\n前回のデータセットを削除します。")
+            print("\n前回のデータセット(画像)を削除します。")
             shutil.rmtree(self.DATA_SET_IMAGES_DIR)
+            fo.delete_datasets(self.DATA_SET_NAME)
+            print("前回のデータセット(画像)を削除しました。")
+        os.makedirs(self.DATA_SET_IMAGES_DIR)
+
+        if os.path.exists(self.DATA_SET_LABELS_DIR):
+            print("\n前回のデータセット(ラベル)を削除します。")
             shutil.rmtree(self.DATA_SET_LABELS_DIR)
             fo.delete_datasets(self.DATA_SET_NAME)
-            print("前回のデータセットを削除しました。")
-        os.makedirs(self.DATA_SET_IMAGES_DIR)
+            print("前回のデータセット(ラベル)を削除しました。")
         os.makedirs(self.DATA_SET_LABELS_DIR)
 
         self.downloadBackgroundImage(trainingNumber)
@@ -66,15 +71,12 @@ class DATA_SET:
         backgroundImages.export(self.BACKGROUND_IMAGE_DIR, dataset_type = fo.types.ImageDirectory)
 
         for sample in backgroundImages:
-            relativePaths = os.path.relpath(sample.filepath, self.BACKGROUND_IMAGE_DIR)
-            for relativePath in relativePaths.split("\\"):
-                if relativePath.endswith(".jpg"):
-                    relativePath = os.path.join(self.BACKGROUND_IMAGE_DIR, relativePath)
-                    relativePath = relativePath.replace("\\", "/")
-                    metaData["imagePath"].append(relativePath)
-
-        with open (f"{self.BACKGROUND_IMAGE_DIR}/metaData.json", "w", encoding="utf-8") as f:
-            json.dump(metaData, f, ensure_ascii=False)
+            if sample.filepath.endswith(".jpg"):
+                dst_path = os.path.join(self.BACKGROUND_IMAGE_DIR, os.path.basename(sample.filepath))
+                shutil.copy(sample.filepath, dst_path)
+                metaData["imagePath"].append(dst_path.replace("\\", "/"))
+                with open (f"{self.BACKGROUND_IMAGE_DIR}/metaData.json", "w", encoding="utf-8") as f:
+                    json.dump(metaData, f, ensure_ascii=False)
 
         print("\n背景画像をダウンロード完了")
 
