@@ -121,7 +121,7 @@ class DATA_SET:
         return licensePlatePaths
         
     def createDataSet(self, backgroundImagePath, licensePlatePaths):
-        background = Image.open(backgroundImagePath)
+        background = Image.open(backgroundImagePath).convert("RGB")
 
         BACKGROUND_WIDTH = background.size[0]
         BACKGROUND_HEIGHT = background.size[1]
@@ -129,65 +129,67 @@ class DATA_SET:
         isVertical = BACKGROUND_WIDTH > BACKGROUND_HEIGHT or BACKGROUND_WIDTH == BACKGROUND_HEIGHT
         LICENSE_PLATE_WIDTH = LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_WIDTH
         LICENSE_PLATE_HEIGHT = LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_HEIGHT
-        MARGIN_BETWEEN_LICENSE_PLATES = 10
-        startCellCoordinateForEachLicensePlate = []
-        startWidthCoordinateForEachLicensePlate = 0
-        startHeightCoordinateForEachLicensePlate = 0
-        # LEVEL_OF_NOISE = random.randint(1, 3)
+        MARGIN = 10
+        startCoordinateForEachLicensePlate = []
+        startXCoordinate = 0
+        startYCoordinate = 0
+        count = 0
         isUsed = False
 
         if isHorizontal:
-            cellWidth = BACKGROUND_WIDTH // self.MAX_CELLS_PER_IMAGE - (MARGIN_BETWEEN_LICENSE_PLATES * 2)
-            cellHeight = BACKGROUND_HEIGHT - (MARGIN_BETWEEN_LICENSE_PLATES * 2)
+            cellWidth = BACKGROUND_WIDTH // self.MAX_CELLS_PER_IMAGE
+            cellHeight = BACKGROUND_HEIGHT
         elif isVertical:
-            cellWidth = BACKGROUND_WIDTH - (MARGIN_BETWEEN_LICENSE_PLATES * 2)
-            cellHeight = BACKGROUND_HEIGHT // self.MAX_CELLS_PER_IMAGE - (MARGIN_BETWEEN_LICENSE_PLATES * 2)
-        else:
-            cellWidth = BACKGROUND_WIDTH // self.MAX_CELLS_PER_IMAGE - (MARGIN_BETWEEN_LICENSE_PLATES * 2)
-            cellHeight = BACKGROUND_HEIGHT // self.MAX_CELLS_PER_IMAGE - (MARGIN_BETWEEN_LICENSE_PLATES * 2)
+            cellWidth = BACKGROUND_WIDTH
+            cellHeight = BACKGROUND_HEIGHT // self.MAX_CELLS_PER_IMAGE
 
         for licensePlatePath in licensePlatePaths:
-            licensePlate = Image.open(licensePlatePath)
-            # makeNoise(licensePlatePath, LEVEL_OF_NOISE)
+            licensePlate = Image.open(licensePlatePath).convert("RGBA")
+            # levelOfNoise = random.randint(1, 3)
+            # makeNoise(licensePlatePath, levelOfNoise)
             # xRotationAngle = random.randint(-10, 10)
             # yRotationAngle = random.randint(-10, 10)
             # zRotationAngle = random.randint(-10, 10)
             # rotateLicensePlate(licensePlatePath, xRotationAngle, yRotationAngle, zRotationAngle)
 
-            if LICENSE_PLATE_WIDTH > cellWidth:
-                licensePlate = licensePlate.resize(
-                    (
-                        cellWidth, 
-                        int(licensePlate.size[1] * (cellWidth / licensePlate.size[0]))
-                    )
-                )
-            elif LICENSE_PLATE_HEIGHT > cellHeight:
-                licensePlate = licensePlate.resize(
-                    (
-                        int(licensePlate.size[0] * (cellHeight / licensePlate.size[1])),
-                        cellHeight
-                    )
-                )
+            maxLicensePlateWidth = cellWidth - (MARGIN * 2)
+            maxLicensePlateHeight = cellHeight - (MARGIN * 2)
 
-            startCellCoordinateForEachLicensePlate.append([startWidthCoordinateForEachLicensePlate, startHeightCoordinateForEachLicensePlate, isUsed])
-            
+            if LICENSE_PLATE_WIDTH > maxLicensePlateWidth or LICENSE_PLATE_HEIGHT > maxLicensePlateHeight:
+                licensePlateScaleX = maxLicensePlateWidth / LICENSE_PLATE_WIDTH
+                licensePlateScaleY = maxLicensePlateHeight / LICENSE_PLATE_HEIGHT
+                scale = min(licensePlateScaleX, licensePlateScaleY)
+                newLicensePlateWidth = int(LICENSE_PLATE_WIDTH * scale)
+                newLicensePlateHeight = int(LICENSE_PLATE_HEIGHT * scale)
+                resizedLicensePlate = licensePlate.resize((newLicensePlateWidth, newLicensePlateHeight))
+            else:
+                resizedLicensePlate = licensePlate
+
+            startCoordinateForEachLicensePlate.append(
+                [
+                    startXCoordinate + MARGIN,
+                    startYCoordinate + MARGIN,
+                    isUsed
+                ]
+            )
+
             if isHorizontal:
-                startWidthCoordinateForEachLicensePlate += cellWidth
+                startXCoordinate += cellWidth
             elif isVertical:
-                startHeightCoordinateForEachLicensePlate += cellHeight
+                startYCoordinate += cellHeight
             
-            while True:
-                position = random.randint(0, len(startCellCoordinateForEachLicensePlate) -1)
-                if startCellCoordinateForEachLicensePlate[position][2] == False:
+            while count < len(startCoordinateForEachLicensePlate):
+                position = random.randint(0, len(startCoordinateForEachLicensePlate) -1)
+                if startCoordinateForEachLicensePlate[position][2] == False:
                     background.paste(
-                        licensePlate, 
+                        resizedLicensePlate, 
                         (
-                            startCellCoordinateForEachLicensePlate[position][0] + MARGIN_BETWEEN_LICENSE_PLATES, 
-                            startCellCoordinateForEachLicensePlate[position][1] + MARGIN_BETWEEN_LICENSE_PLATES
-                            )
+                            startCoordinateForEachLicensePlate[position][0], 
+                            startCoordinateForEachLicensePlate[position][1]
                         )
-                    startCellCoordinateForEachLicensePlate[position][2] = True
-                    break
+                    )
+                    startCoordinateForEachLicensePlate[position][2] = True
+                    count += 1
 
         return background
 
