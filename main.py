@@ -12,6 +12,10 @@ def main():
 
         try:
             selectedNum = int(input("作業番号?: "))
+            
+            if selectedNum not in [0, 1, 2]:
+                print("0~2の数字を入力してください。\n")
+                continue
         except ValueError:
             print("数字を入力してください。\n")
             continue
@@ -21,6 +25,10 @@ def main():
         if selectedNum == 0:
             try:
                 trainingNumber = int(input("ナンバープレート数?: "))
+
+                if trainingNumber < 1:
+                    print("1以上の数字を入力してください。\n")
+                    continue
             except ValueError:
                 print("数字を入力してください。\n")
                 continue
@@ -48,6 +56,10 @@ def main():
         elif selectedNum == 1:
             try:
                 trainingNumber = int(input("データセット数?: "))
+
+                if trainingNumber < 1:
+                    print("1以上の数字を入力してください。\n")
+                    continue
             except ValueError:
                 print("数字を入力してください。\n")
                 continue
@@ -62,6 +74,7 @@ def main():
             
             try:
                 typeOfVehicle = int(input("車種?: "))
+
                 if typeOfVehicle not in [0, 1, 2, 3]:
                     print("0~3の数字を入力してください。\n")
                     continue
