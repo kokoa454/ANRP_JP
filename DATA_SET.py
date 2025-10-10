@@ -20,9 +20,8 @@ class DATA_SET:
     MAX_LICENSE_PLATES_PER_IMAGE = 3
     MAX_CELLS_PER_IMAGE = 3
 
-    def __init__(self, trainingNumber, typeOfVehicle):
+    def __init__(self, trainingNumber):
         trainingNumber = int(trainingNumber)
-        typeOfVehicle = int(typeOfVehicle)
         
         if os.path.exists(self.BACKGROUND_IMAGE_DIR):
             print("\n前回の背景画像を削除します。")
@@ -46,20 +45,20 @@ class DATA_SET:
 
         self.downloadBackgroundImage(trainingNumber)
 
-        print("\nデータセットを生成中...")
+        print("\nデータセットの生成中...")
         while trainingNumber > 0:
             self.backgroundImagePath = self.pickBackgroundImage()
-            self.licensePlatePaths = self.pickLicensePlates(typeOfVehicle)
+            self.licensePlatePaths = self.pickLicensePlates()
             self.dataSet = self.createDataSet(self.backgroundImagePath, self.licensePlatePaths)
             self.dataSet.save(self.DATA_SET_IMAGES_DIR + f"/{trainingNumber}.jpg")
             trainingNumber -= 1
 
-        print("\nデータセットを生成完了")
+        print("\nデータセットの生成完了")
 
     def downloadBackgroundImage(self, trainingNumber):
         metaData = {"imagePath": []}
 
-        print("\n背景画像をダウンロード中...")
+        print("\n背景画像のダウンロード中...")
         backgroundImages = foz.load_zoo_dataset(
             "open-images-v7",
             split="train",
@@ -86,7 +85,7 @@ class DATA_SET:
                 with open (f"{self.BACKGROUND_IMAGE_DIR}/metaData.json", "w", encoding="utf-8") as f:
                     json.dump(metaData, f, ensure_ascii=False)
 
-        print("\n背景画像をダウンロード完了")
+        print("\n背景画像のダウンロード完了")
 
         return
     
@@ -105,11 +104,11 @@ class DATA_SET:
             print("ERROR: 背景画像をダウンロードしてください。")
             sys.exit()
 
-    def pickLicensePlates(self, typeOfVehicle):
+    def pickLicensePlates(self):
         licensePlatePaths = []
         
         try:
-            f = open(LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{LICENSE_PLATE.LICENSE_PLATE.typeOfVehicleString[typeOfVehicle]}/metaData.json", "r", encoding="utf-8")
+            f = open(LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "r", encoding="utf-8")
             metaData = json.load(f)
 
             print("\nナンバープレートの選択中...")
@@ -117,7 +116,8 @@ class DATA_SET:
             licensePlateNumber = random.randint(1, self.MAX_LICENSE_PLATES_PER_IMAGE)
 
             while licensePlateNumber > 0:
-                licensePlatePaths += random.choice(metaData["imagePath"]).split(",")
+                typeOfVehicle = random.randint(0, len(LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_STRING) - 1)
+                licensePlatePaths += random.choice(metaData["imagePath_" + LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_STRING[typeOfVehicle]]).split(",")
                 licensePlateNumber -= 1
 
             print("\nナンバープレートの選択完了")
