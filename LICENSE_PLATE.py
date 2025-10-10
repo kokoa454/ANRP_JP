@@ -7,45 +7,45 @@ import shutil
 import json
 
 class LICENSE_PLATE:
-    # 車種 (
-    #     0: 普通（自家用）
-    #     1: 普通（事業用）
-    #     2: 軽（自家用）
-    #     3: 軽（事業用）
-    # )
-
     LICENSE_PLATE_DIR = "./license_plate_images"
-    typeOfVehicleString = ["普通_自家用", "普通_事業用", "軽_自家用", "軽_事業用"]
+    TYPE_OF_VEHICLE_STRING = ["普通_自家用", "普通_事業用", "軽_自家用", "軽_事業用"]
     LICENSE_PLATE_WIDTH = 440
     LICENSE_PLATE_HEIGHT = 220
 
-    def __init__(self, trainingNumber, typeOfVehicle):
+    def __init__(self, trainingNumber):
         trainingNumber = int(trainingNumber)
-        typeOfVehicle = int(typeOfVehicle)
-        metaData = {"imagePath": []}
+        count = trainingNumber
+        metaData = {
+            "imagePath_普通_自家用": [],
+            "imagePath_普通_事業用": [],
+            "imagePath_軽_自家用": [],
+            "imagePath_軽_事業用": []
+        }
 
-        if os.path.exists(LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}"):
+        if os.path.exists(LICENSE_PLATE.LICENSE_PLATE_DIR):
             print("\n前回のナンバープレートを削除します。")
-            shutil.rmtree(LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}")
+            shutil.rmtree(LICENSE_PLATE.LICENSE_PLATE_DIR)
             print("前回のナンバープレートを削除しました。")
-            os.makedirs(LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}")
+            os.makedirs(LICENSE_PLATE.LICENSE_PLATE_DIR)
         
         print("\nナンバープレート生成中...")
 
-        while trainingNumber > 0:
-            plateBackGroundColor = self.getPlateBackGroundColor(typeOfVehicle)
-            plateTextColor = self.getPlateTextColor(typeOfVehicle)
-            officeCode = self.getOfficeCode()
-            classNumber = self.getClassNumber(typeOfVehicle)
-            hiraganaCode = self.getHiraganaCode(typeOfVehicle)
-            registrationNumber = self.getRegistrationNumber()
+        for typeOfVehicle in range(len(self.TYPE_OF_VEHICLE_STRING)):
+            count = trainingNumber
+            while count > 0:
+                plateBackGroundColor = self.getPlateBackGroundColor(typeOfVehicle)
+                plateTextColor = self.getPlateTextColor(typeOfVehicle)
+                officeCode = self.getOfficeCode()
+                classNumber = self.getClassNumber(typeOfVehicle)
+                hiraganaCode = self.getHiraganaCode(typeOfVehicle)
+                registrationNumber = self.getRegistrationNumber()
 
-            self.generatePlate(typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
+                self.generatePlate(typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
 
-            trainingNumber -= 1
+                count -= 1
 
-        with open(LICENSE_PLATE.LICENSE_PLATE_DIR  + f"/{self.typeOfVehicleString[typeOfVehicle]}/metaData.json", "w", encoding="utf-8") as f:
-            json.dump(metaData, f, ensure_ascii=False)
+        with open(LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "w", encoding="utf-8") as f:
+            json.dump(metaData, f, ensure_ascii = False, indent = len(self.TYPE_OF_VEHICLE_STRING))
 
         print("\nナンバープレート生成完了")
 
@@ -344,10 +344,10 @@ class LICENSE_PLATE:
 
         os.makedirs(self.LICENSE_PLATE_DIR, exist_ok=True)
 
-        os.makedirs(self.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}", exist_ok=True)
+        os.makedirs(self.LICENSE_PLATE_DIR + f"/{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}", exist_ok=True)
 
-        metaData["imagePath"].append(f"{self.LICENSE_PLATE_DIR}/{self.typeOfVehicleString[typeOfVehicle]}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
+        metaData["imagePath_" + f"{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}"].append(f"{self.LICENSE_PLATE_DIR}/{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
 
-        img.save(self.LICENSE_PLATE_DIR + f"/{self.typeOfVehicleString[typeOfVehicle]}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
+        img.save(self.LICENSE_PLATE_DIR + f"/{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
 
         return
