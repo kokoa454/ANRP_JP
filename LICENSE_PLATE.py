@@ -26,7 +26,8 @@ class LICENSE_PLATE:
             print("\n前回のナンバープレートを削除します。")
             shutil.rmtree(LICENSE_PLATE.LICENSE_PLATE_DIR)
             print("前回のナンバープレートを削除しました。")
-            os.makedirs(LICENSE_PLATE.LICENSE_PLATE_DIR)
+            
+        os.makedirs(LICENSE_PLATE.LICENSE_PLATE_DIR)
         
         print("\nナンバープレート生成中...")
 
@@ -44,8 +45,11 @@ class LICENSE_PLATE:
 
                 count -= 1
 
-        with open(LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "w", encoding="utf-8") as f:
-            json.dump(metaData, f, ensure_ascii = False, indent = len(self.TYPE_OF_VEHICLE_STRING))
+        try:
+            with open(LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "w", encoding="utf-8") as f:
+                json.dump(metaData, f, ensure_ascii = False, indent = len(self.TYPE_OF_VEHICLE_STRING))
+        except FileNotFoundError:
+            raise RuntimeError("ERROR: メタデータの保存に失敗しました。")
 
         print("\nナンバープレート生成完了")
 
@@ -252,6 +256,11 @@ class LICENSE_PLATE:
             [(center_x - radius, center_y - radius), (center_x + radius, center_y + radius)],
             fill=colorForFrame
         )
+
+        for font in [font0, font1, font2]:
+            if not os.path.exists(font):
+                print(f"ERROR: フォントファイル '{font}' が見つかりません。")
+                raise FileNotFoundError("フォントファイルの存在を確認してください。")
 
         # 地名
         fontOfficeCode = ImageFont.truetype(font0, 55)

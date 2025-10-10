@@ -31,27 +31,25 @@ class DATA_SET:
 
         if os.path.exists(self.DATA_SET_IMAGES_DIR):
             print("\n前回のデータセット(画像)を削除します。")
-            shutil.rmtree(self.DATA_SET_IMAGES_DIR)
             fo.delete_datasets(self.DATA_SET_NAME)
+            shutil.rmtree(self.DATA_SET_IMAGES_DIR)
             print("前回のデータセット(画像)を削除しました。")
         os.makedirs(self.DATA_SET_IMAGES_DIR)
 
         if os.path.exists(self.DATA_SET_LABELS_DIR):
             print("\n前回のデータセット(ラベル)を削除します。")
             shutil.rmtree(self.DATA_SET_LABELS_DIR)
-            fo.delete_datasets(self.DATA_SET_NAME)
             print("前回のデータセット(ラベル)を削除しました。")
         os.makedirs(self.DATA_SET_LABELS_DIR)
 
         self.downloadBackgroundImage(trainingNumber)
 
         print("\nデータセットの生成中...")
-        while trainingNumber > 0:
+        for imageNumber in range(1, trainingNumber + 1):
             self.backgroundImagePath = self.pickBackgroundImage()
             self.licensePlatePaths = self.pickLicensePlates()
-            self.dataSet = self.createDataSet(self.backgroundImagePath, self.licensePlatePaths, trainingNumber)
-            self.dataSet.save(self.DATA_SET_IMAGES_DIR + f"/{trainingNumber}.jpg")
-            trainingNumber -= 1
+            self.dataSet = self.createDataSet(self.backgroundImagePath, self.licensePlatePaths, imageNumber)
+            self.dataSet.save(self.DATA_SET_IMAGES_DIR + f"/{imageNumber:06}.jpg")
 
         print("\nデータセットの生成完了")
 
@@ -78,12 +76,17 @@ class DATA_SET:
         backgroundImages.export(self.BACKGROUND_IMAGE_DIR, dataset_type = fo.types.ImageDirectory)
 
         for sample in backgroundImages:
-            if sample.filepath.endswith(".jpg"):
-                dst_path = os.path.join(self.BACKGROUND_IMAGE_DIR, os.path.basename(sample.filepath))
+            if sample.filepath.lower().endswith((".jpg", ".jpeg", ".png")):
+                uniqueName = f"{len(metaData['imagePath']):06}_{os.path.basename(sample.filepath)}"
+                dst_path = os.path.join(self.BACKGROUND_IMAGE_DIR, uniqueName)
                 shutil.copy(sample.filepath, dst_path)
                 metaData["imagePath"].append(dst_path.replace("\\", "/"))
-                with open (f"{self.BACKGROUND_IMAGE_DIR}/metaData.json", "w", encoding="utf-8") as f:
-                    json.dump(metaData, f, ensure_ascii=False)
+
+        try:
+            with open (f"{self.BACKGROUND_IMAGE_DIR}/metaData.json", "w", encoding="utf-8") as f:
+                json.dump(metaData, f, ensure_ascii=False)
+        except Exception as e:
+            raise RuntimeError("ERROR: メタデータの保存に失敗しました。")
 
         print("\n背景画像のダウンロード完了")
 
@@ -91,8 +94,8 @@ class DATA_SET:
     
     def pickBackgroundImage(self):
         try:
-            f = open(self.BACKGROUND_IMAGE_DIR + "/metaData.json", "r", encoding="utf-8")
-            metaData = json.load(f)
+            with open(self.BACKGROUND_IMAGE_DIR + "/metaData.json", "r", encoding="utf-8") as f:
+                metaData = json.load(f)
 
             print("\n背景画像の選択中...")
             backgroundImage = random.choice(metaData["imagePath"])
@@ -102,14 +105,18 @@ class DATA_SET:
 
         except FileNotFoundError:
             print("ERROR: 背景画像をダウンロードしてください。")
-            sys.exit()
+            raise RuntimeError("背景画像が見つかりません。")
+        
+        except json.JSONDecodeError:
+            print("ERROR: 背景画像のメタデータが破損しています。")
+            raise RuntimeError("再度生成してください。")
 
     def pickLicensePlates(self):
         licensePlatePaths = []
         
         try:
-            f = open(LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "r", encoding="utf-8")
-            metaData = json.load(f)
+            with open(LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "r", encoding="utf-8") as f:
+                metaData = json.load(f)
 
             print("\nナンバープレートの選択中...")
 
@@ -124,7 +131,11 @@ class DATA_SET:
             
         except FileNotFoundError:
             print("ERROR: ナンバープレートを生成してください。")
-            sys.exit()
+            raise RuntimeError("ナンバープレートが見つかりません。")
+        
+        except json.JSONDecodeError:
+            print("ERROR: ナンバープレートのメタデータが破損しています。")
+            raise RuntimeError("再度生成してください。")
 
         return licensePlatePaths
         
@@ -279,7 +290,11 @@ class DATA_SET:
             [0, licensePlateHeight - 1]
         ])
 
-        matrix = cv2.getPerspectiveTransform(srcPoint, dstPoint)
+        try: 
+            matrix = cv2.getPerspectiveTransform(srcPoint, dstPoint)
+        except cv2.error as e:
+            print("ERROR: ナンバープレートの回転に失敗しました。")
+            raise RuntimeError("再度生成してください。")
 
         licensePlatePositionTransformed = cv2.perspectiveTransform(srcPoint.reshape(-1, 1, 2), matrix)
         
@@ -300,7 +315,11 @@ class DATA_SET:
             ],
             dtype=np.float32
         )
+
         finalMatrix = matrixShift @ matrix
+
+        if np.linalg.det(finalMatrix) == 0:
+            return licensePlate
         
         affinedLicensePlate = cv2.warpPerspective(
             npLicensePlate, 
@@ -313,8 +332,12 @@ class DATA_SET:
 
         return Image.fromarray(affinedLicensePlate, 'RGBA')
     
-    def createLabels(self, classId, xCenter, yCenter, width, height, imageNumber):
-        labelFilePath = f"{self.DATA_SET_LABELS_DIR}/{imageNumber}.txt"
-
-        with open(labelFilePath, "a") as f:
-            f.write(f"{classId} {xCenter} {yCenter} {width} {height}\n")
+    def createLabels(self, classId, imageNumber, xCenter, yCenter, width, height):
+        labelFilePath = f"{self.DATA_SET_LABELS_DIR}/{imageNumber:06}.txt"
+        label = f"{classId} {xCenter:.6f} {yCenter:.6f} {width:.6f} {height:.6f}"
+        
+        try:
+            with open(labelFilePath, "a") as f:
+                f.write(label + "\n")
+        except FileNotFoundError:
+            raise RuntimeError("ERROR: ラベルファイルの作成に失敗しました。")
