@@ -49,7 +49,7 @@ class DATA_SET:
         while trainingNumber > 0:
             self.backgroundImagePath = self.pickBackgroundImage()
             self.licensePlatePaths = self.pickLicensePlates()
-            self.dataSet = self.createDataSet(self.backgroundImagePath, self.licensePlatePaths)
+            self.dataSet = self.createDataSet(self.backgroundImagePath, self.licensePlatePaths, trainingNumber)
             self.dataSet.save(self.DATA_SET_IMAGES_DIR + f"/{trainingNumber}.jpg")
             trainingNumber -= 1
 
@@ -128,7 +128,7 @@ class DATA_SET:
 
         return licensePlatePaths
         
-    def createDataSet(self, backgroundImagePath, licensePlatePaths):
+    def createDataSet(self, backgroundImagePath, licensePlatePaths, imageNumber):
         background = Image.open(backgroundImagePath).convert("RGB")
 
         BACKGROUND_WIDTH = background.size[0]
@@ -172,11 +172,11 @@ class DATA_SET:
             rotationYAngle = 0
             
             if rotateOrNot == 1:
-                rotationXAngle = random.randint(-20, 20)
+                rotationXAngle = random.randint(-40, 40)
                 if rotationXAngle != 0:
                     licensePlate = self.rotateLicensePlate(licensePlate, rotationXAngle, 0)
             elif rotateOrNot == 2:
-                rotationYAngle = random.randint(-20, 20)
+                rotationYAngle = random.randint(-40, 40)
                 if rotationYAngle != 0:
                     licensePlate = self.rotateLicensePlate(licensePlate, 0, rotationYAngle)
 
@@ -204,6 +204,15 @@ class DATA_SET:
                 licensePlateY = random.randint(MARGIN, max(MARGIN, BACKGROUND_HEIGHT - licensePlate.size[1] - MARGIN))
 
             background.paste(licensePlate, (licensePlateX, licensePlateY), licensePlate)
+
+            self.createLabels(
+                classId = 0,
+                imageNumber = imageNumber,
+                xCenter = (licensePlateX + (licensePlate.size[0] / 2)) / BACKGROUND_WIDTH,
+                yCenter = (licensePlateY + (licensePlate.size[1] / 2)) / BACKGROUND_HEIGHT,
+                width = licensePlate.size[0] / BACKGROUND_WIDTH,
+                height = licensePlate.size[1] / BACKGROUND_HEIGHT
+            )
 
         return background
 
@@ -303,3 +312,9 @@ class DATA_SET:
         )
 
         return Image.fromarray(affinedLicensePlate, 'RGBA')
+    
+    def createLabels(self, classId, xCenter, yCenter, width, height, imageNumber):
+        labelFilePath = f"{self.DATA_SET_LABELS_DIR}/{imageNumber}.txt"
+
+        with open(labelFilePath, "a") as f:
+            f.write(f"{classId} {xCenter} {yCenter} {width} {height}\n")
