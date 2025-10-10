@@ -9,6 +9,8 @@ from PIL import Image
 import sys
 import shutil
 import os
+import numpy as np
+import cv2
 
 class DATA_SET:
     BACKGROUND_IMAGE_DIR = "./background_images"
@@ -29,22 +31,22 @@ class DATA_SET:
         os.makedirs(self.BACKGROUND_IMAGE_DIR)
 
         if os.path.exists(self.DATA_SET_IMAGES_DIR):
-            print("\n前回のデータセット(画像)を削除します。")
+            print("\n前回のデータセット(画像)を削除します。")
             shutil.rmtree(self.DATA_SET_IMAGES_DIR)
             fo.delete_datasets(self.DATA_SET_NAME)
-            print("前回のデータセット(画像)を削除しました。")
+            print("前回のデータセット(画像)を削除しました。")
         os.makedirs(self.DATA_SET_IMAGES_DIR)
 
         if os.path.exists(self.DATA_SET_LABELS_DIR):
-            print("\n前回のデータセット(ラベル)を削除します。")
+            print("\n前回のデータセット(ラベル)を削除します。")
             shutil.rmtree(self.DATA_SET_LABELS_DIR)
             fo.delete_datasets(self.DATA_SET_NAME)
-            print("前回のデータセット(ラベル)を削除しました。")
+            print("前回のデータセット(ラベル)を削除しました。")
         os.makedirs(self.DATA_SET_LABELS_DIR)
 
         self.downloadBackgroundImage(trainingNumber)
 
-        print("\nデータセットを生成中...")
+        print("\nデータセットを生成中...")
         while trainingNumber > 0:
             self.backgroundImagePath = self.pickBackgroundImage()
             self.licensePlatePaths = self.pickLicensePlates(typeOfVehicle)
@@ -52,12 +54,12 @@ class DATA_SET:
             self.dataSet.save(self.DATA_SET_IMAGES_DIR + f"/{trainingNumber}.jpg")
             trainingNumber -= 1
 
-        print("\nデータセットを生成完了")
+        print("\nデータセットを生成完了")
 
     def downloadBackgroundImage(self, trainingNumber):
         metaData = {"imagePath": []}
 
-        print("\n背景画像をダウンロード中...")
+        print("\n背景画像をダウンロード中...")
         backgroundImages = foz.load_zoo_dataset(
             "open-images-v7",
             split="train",
@@ -84,7 +86,7 @@ class DATA_SET:
                 with open (f"{self.BACKGROUND_IMAGE_DIR}/metaData.json", "w", encoding="utf-8") as f:
                     json.dump(metaData, f, ensure_ascii=False)
 
-        print("\n背景画像をダウンロード完了")
+        print("\n背景画像をダウンロード完了")
 
         return
     
@@ -100,7 +102,7 @@ class DATA_SET:
             return backgroundImage
 
         except FileNotFoundError:
-            print("ERROR: 背景画像をダウンロードしてください。")
+            print("ERROR: 背景画像をダウンロードしてください。")
             sys.exit()
 
     def pickLicensePlates(self, typeOfVehicle):
@@ -110,7 +112,7 @@ class DATA_SET:
             f = open(LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_DIR + f"/{LICENSE_PLATE.LICENSE_PLATE.typeOfVehicleString[typeOfVehicle]}/metaData.json", "r", encoding="utf-8")
             metaData = json.load(f)
 
-            print("\nナンバープレートの選択中...")
+            print("\nナンバープレートの選択中...")
 
             licensePlateNumber = random.randint(1, self.MAX_LICENSE_PLATES_PER_IMAGE)
 
@@ -118,7 +120,7 @@ class DATA_SET:
                 licensePlatePaths += random.choice(metaData["imagePath"]).split(",")
                 licensePlateNumber -= 1
 
-            print("\nナンバープレートの選択完了")
+            print("\nナンバープレートの選択完了")
             
         except FileNotFoundError:
             print("ERROR: ナンバープレートを生成してください。")
@@ -141,7 +143,6 @@ class DATA_SET:
         startCoordinateForEachLicensePlate = []
         startXCoordinate = 0
         startYCoordinate = 0
-        count = 0
         isUsed = False
 
         if isHorizontal:
@@ -165,20 +166,34 @@ class DATA_SET:
 
         for i, licensePlatePath in enumerate(licensePlatePaths):
             licensePlate = Image.open(licensePlatePath).convert("RGBA")
-            # levelOfNoise = random.randint(1, 3)
-            # makeNoise(licensePlatePath, levelOfNoise)
-            # xRotationAngle = random.randint(-10, 10)
-            # yRotationAngle = random.randint(-10, 10)
-            # zRotationAngle = random.randint(-10, 10)
-            # rotateLicensePlate(licensePlatePath, xRotationAngle, yRotationAngle, zRotationAngle)
 
+            rotateOrNot = random.randint(0, 2)
+            rotationXAngle = 0
+            rotationYAngle = 0
+            
+            if rotateOrNot == 1:
+                rotationXAngle = random.randint(-20, 20)
+                if rotationXAngle != 0:
+                    licensePlate = self.rotateLicensePlate(licensePlate, rotationXAngle, 0)
+            elif rotateOrNot == 2:
+                rotationYAngle = random.randint(-20, 20)
+                if rotationYAngle != 0:
+                    licensePlate = self.rotateLicensePlate(licensePlate, 0, rotationYAngle)
+
+            levelOfNoise = random.randint(0, 5)
+            if levelOfNoise > 0:
+                licensePlate = self.makeNoise(licensePlate, levelOfNoise)
+
+            currentLicensePlateWidth = licensePlate.size[0]
+            currentLicensePlateHeight = licensePlate.size[1]
+            
             maxLicensePlateWidth = max(1, cellWidth - (MARGIN * 2))
             maxLicensePlateHeight = max(1, cellHeight - (MARGIN * 2))
 
-            if LICENSE_PLATE_WIDTH > maxLicensePlateWidth or LICENSE_PLATE_HEIGHT > maxLicensePlateHeight:
-                scale = min(maxLicensePlateWidth / LICENSE_PLATE_WIDTH, maxLicensePlateHeight / LICENSE_PLATE_HEIGHT)
-                newLicensePlateWidth = max(1, int(LICENSE_PLATE_WIDTH * scale))
-                newLicensePlateHeight = max(1, int(LICENSE_PLATE_HEIGHT * scale))
+            if currentLicensePlateWidth > maxLicensePlateWidth or currentLicensePlateHeight > maxLicensePlateHeight:
+                scale = min(maxLicensePlateWidth / currentLicensePlateWidth, maxLicensePlateHeight / currentLicensePlateHeight)
+                newLicensePlateWidth = max(1, int(currentLicensePlateWidth * scale))
+                newLicensePlateHeight = max(1, int(currentLicensePlateHeight * scale))
                 licensePlate = licensePlate.resize((newLicensePlateWidth, newLicensePlateHeight))
 
             if i < len(startCoordinateForEachLicensePlate):
@@ -192,6 +207,99 @@ class DATA_SET:
 
         return background
 
-    # def makeNoise(licensePlatePath, levelOfNoise):
+    def makeNoise(self, licensePlate, levelOfNoise):
+        npLicensePlate = np.array(licensePlate)
+        noise = np.random.randint(-levelOfNoise * 10, levelOfNoise * 10, npLicensePlate.shape, dtype='int16')
+        noisyLicensePlate = np.clip(npLicensePlate.astype('int16') + noise, 0, 255).astype('uint8')
+        return Image.fromarray(noisyLicensePlate)
+    
+    def rotateLicensePlate(self, licensePlate, rotationXAngle, rotationYAngle):
+        npLicensePlate = np.array(licensePlate)
+        licensePlateHeight, licensePlateWidth = npLicensePlate.shape[:2]
+        focalLength = max(licensePlateWidth, licensePlateHeight) * 1.5 
+        centerX = licensePlateWidth / 2
+        centerY = licensePlateHeight / 2
+        z = 0 
 
-    # def rotateLicensePlate(licensePlatePath, x, y, z):
+        srcPoints3D = np.float32([
+            [-centerX, -centerY, z],
+            [ centerX, -centerY, z],
+            [ centerX,  centerY, z],
+            [-centerX,  centerY, z]
+        ])
+
+        dstPoints = []
+        radianX = np.deg2rad(rotationXAngle)
+        radianY = np.deg2rad(rotationYAngle)
+
+        rotationXMatrix = np.array([
+            [1, 0, 0],
+            [0, np.cos(radianX), -np.sin(radianX)],
+            [0, np.sin(radianX), np.cos(radianX)]
+        ])
+
+        rotationYMatrix = np.array([
+            [np.cos(radianY), 0, np.sin(radianY)],
+            [0, 1, 0],
+            [-np.sin(radianY), 0, np.cos(radianY)]
+        ])
+
+        finalRotationMatrix = np.identity(3)
+
+        if rotationXAngle != 0:
+            finalRotationMatrix = rotationXMatrix
+        elif rotationYAngle != 0:
+            finalRotationMatrix = rotationYMatrix
+
+        for x, y, z_val in srcPoints3D:
+            rotatedPoint = finalRotationMatrix @ np.array([x, y, z_val])
+            Z_prime = rotatedPoint[2] + focalLength 
+            if Z_prime == 0: Z_prime = 1e-6 
+            
+            x_proj = (focalLength * rotatedPoint[0] / Z_prime) + centerX
+            y_proj = (focalLength * rotatedPoint[1] / Z_prime) + centerY
+            
+            dstPoints.append([x_proj, y_proj])
+            
+        dstPoint = np.float32(dstPoints)
+        
+        srcPoint = np.float32([
+            [0, 0],
+            [licensePlateWidth - 1, 0],
+            [licensePlateWidth - 1, licensePlateHeight - 1],
+            [0, licensePlateHeight - 1]
+        ])
+
+        matrix = cv2.getPerspectiveTransform(srcPoint, dstPoint)
+
+        licensePlatePositionTransformed = cv2.perspectiveTransform(srcPoint.reshape(-1, 1, 2), matrix)
+        
+        licensePlateXCoordinate = licensePlatePositionTransformed[:, 0, 0]
+        licensePlateYCoordinate = licensePlatePositionTransformed[:, 0, 1]
+        
+        minLicensePlateXCoordinate, maxLicensePlateXCoordinate = np.min(licensePlateXCoordinate), np.max(licensePlateXCoordinate)
+        minLicensePlateYCoordinate, maxLicensePlateYCoordinate = np.min(licensePlateYCoordinate), np.max(licensePlateYCoordinate)
+
+        newLicensePlateWidth = int(np.round(maxLicensePlateXCoordinate - minLicensePlateXCoordinate))
+        newLicensePlateHeight = int(np.round(maxLicensePlateYCoordinate - minLicensePlateYCoordinate))
+        
+        matrixShift = np.array(
+            [
+                [1, 0, -minLicensePlateXCoordinate],
+                [0, 1, -minLicensePlateYCoordinate],
+                [0, 0, 1]
+            ],
+            dtype=np.float32
+        )
+        finalMatrix = matrixShift @ matrix
+        
+        affinedLicensePlate = cv2.warpPerspective(
+            npLicensePlate, 
+            finalMatrix, 
+            (newLicensePlateWidth, newLicensePlateHeight), 
+            flags=cv2.INTER_LINEAR, 
+            borderMode=cv2.BORDER_CONSTANT, 
+            borderValue=(0, 0, 0, 0)
+        )
+
+        return Image.fromarray(affinedLicensePlate, 'RGBA')
