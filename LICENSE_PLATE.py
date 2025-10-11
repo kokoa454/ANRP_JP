@@ -26,7 +26,6 @@ class LICENSE_PLATE:
 
     def __init__(self, trainingNumber):
         trainingNumber = int(trainingNumber)
-        count = trainingNumber
         metaData = {
             "imagePath_普通_自家用": [],
             "imagePath_普通_事業用": [],
@@ -44,8 +43,7 @@ class LICENSE_PLATE:
         print("\nナンバープレート生成中...")
 
         for typeOfVehicle in range(len(self.TYPE_OF_VEHICLE_STRING)):
-            count = trainingNumber
-            while count > 0:
+            for imageNumber in range(1, trainingNumber + 1):
                 plateBackGroundColor = self.getPlateBackGroundColor(typeOfVehicle)
                 plateTextColor = self.getPlateTextColor(typeOfVehicle)
                 officeCode = self.getOfficeCode()
@@ -53,9 +51,7 @@ class LICENSE_PLATE:
                 hiraganaCode = self.getHiraganaCode(typeOfVehicle)
                 registrationNumber = self.getRegistrationNumber()
 
-                self.generatePlate(typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
-
-                count -= 1
+                self.generatePlate(trainingNumber, imageNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
 
         try:
             with open(LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "w", encoding="utf-8") as f:
@@ -228,7 +224,7 @@ class LICENSE_PLATE:
 
         return registrationNumber
 
-    def generatePlate(self, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData):
+    def generatePlate(self, trainingNumber, imageNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData):
         # print(f"""
         # +-------------------------------------+
         # |     {officeCode}  {classNumber}     |
@@ -367,8 +363,8 @@ class LICENSE_PLATE:
 
         os.makedirs(self.LICENSE_PLATE_DIR + f"/{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}", exist_ok=True)
 
-        metaData["imagePath_" + f"{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}"].append(f"{self.LICENSE_PLATE_DIR}/{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
+        metaData["imagePath_" + f"{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}"].append(f"{self.LICENSE_PLATE_DIR}/{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}/{imageNumber:0{len(str(trainingNumber)) + 1}}.png")
 
-        img.save(self.LICENSE_PLATE_DIR + f"/{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}/{officeCode}_{classNumber}_{hiraganaCode}_{registrationNumber}.png")
+        img.save(self.LICENSE_PLATE_DIR + f"/{self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}/{imageNumber:0{len(str(trainingNumber)) + 1}}.png")
 
         return
