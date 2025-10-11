@@ -9,6 +9,18 @@ import json
 class LICENSE_PLATE:
     LICENSE_PLATE_DIR = "./license_plate_images"
     TYPE_OF_VEHICLE_STRING = ["普通_自家用", "普通_事業用", "軽_自家用", "軽_事業用"]
+    TYPE_OF_VEHICLE_COLOR_RGB = {
+        "普通_自家用": (255, 51, 153), # ピンク
+        "普通_事業用": (255, 0, 0),    # 赤 
+        "軽_自家用": (0, 0, 255),      # 青
+        "軽_事業用": (128, 0, 128)     # 紫
+    }
+    TYPE_OF_VEHICLE_ROMAN = {
+        "普通_自家用": "F_JIKAYO",
+        "普通_事業用": "F_JIGYOYO",
+        "軽_自家用": "K_JIKAYO",
+        "軽_事業用": "K_JIGYOYO"
+    }
     LICENSE_PLATE_WIDTH = 440
     LICENSE_PLATE_HEIGHT = 220
 
