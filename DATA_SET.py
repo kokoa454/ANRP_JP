@@ -5,8 +5,7 @@ import fiftyone as fo
 import fiftyone.zoo as foz
 import random
 import json
-from PIL import Image
-import sys
+from PIL import Image, ImageDraw, ImageFont
 import shutil
 import os
 import numpy as np
@@ -19,6 +18,7 @@ class DATA_SET:
     DATA_SET_NAME = "data_set"
     MAX_LICENSE_PLATES_PER_IMAGE = 3
     MAX_CELLS_PER_IMAGE = 3
+    MAX_OVERLAP_RATE = 0.0
 
     def __init__(self, trainingNumber):
         trainingNumber = int(trainingNumber)
@@ -30,33 +30,35 @@ class DATA_SET:
         os.makedirs(self.BACKGROUND_IMAGE_DIR)
 
         if os.path.exists(self.DATA_SET_IMAGES_DIR):
-            print("\n前回のデータセット(画像)を削除します。")
+            print("\n前回のデータセットを削除します。")
             fo.delete_datasets(self.DATA_SET_NAME)
             shutil.rmtree(self.DATA_SET_IMAGES_DIR)
-            print("前回のデータセット(画像)を削除しました。")
+            print("前回のデータセットを削除しました。")
         os.makedirs(self.DATA_SET_IMAGES_DIR)
 
         if os.path.exists(self.DATA_SET_LABELS_DIR):
-            print("\n前回のデータセット(ラベル)を削除します。")
+            print("\n前回のラベルを削除します。")
             shutil.rmtree(self.DATA_SET_LABELS_DIR)
-            print("前回のデータセット(ラベル)を削除しました。")
+            print("前回のラベルを削除しました。")
         os.makedirs(self.DATA_SET_LABELS_DIR)
 
+        print("\n背景画像をダウンロードしています。")
         self.downloadBackgroundImage(trainingNumber)
+        print("背景画像のダウンロードが完了しました。")
 
-        print("\nデータセットの生成中...")
+        print("\nデータセットを生成しています。")
         for imageNumber in range(1, trainingNumber + 1):
-            self.backgroundImagePath = self.pickBackgroundImage()
-            self.licensePlatePaths = self.pickLicensePlates()
-            self.dataSet = self.createDataSet(self.backgroundImagePath, self.licensePlatePaths, imageNumber)
-            self.dataSet.save(self.DATA_SET_IMAGES_DIR + f"/{imageNumber:06}.jpg")
+            backgroundImagePath = self.pickBackgroundImage()
+            (licensePlatePaths, licensePlateClasses) = self.pickLicensePlates()
+            self.dataSet = self.createDataSet(trainingNumber, backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber)
+            self.dataSet.save(self.DATA_SET_IMAGES_DIR + f"/{imageNumber:0{len(str(trainingNumber)) + 1}}.jpg")
+            print(f"データセット {imageNumber} / {trainingNumber} を生成しました。")
 
-        print("\nデータセットの生成完了")
+        print("データセットの生成が完了しました。")
 
     def downloadBackgroundImage(self, trainingNumber):
         metaData = {"imagePath": []}
 
-        print("\n背景画像のダウンロード中...")
         backgroundImages = foz.load_zoo_dataset(
             "open-images-v7",
             split="train",
@@ -78,17 +80,15 @@ class DATA_SET:
         for sample in backgroundImages:
             if sample.filepath.lower().endswith((".jpg", ".jpeg", ".png")):
                 uniqueName = f"{len(metaData['imagePath']):06}_{os.path.basename(sample.filepath)}"
-                dst_path = os.path.join(self.BACKGROUND_IMAGE_DIR, uniqueName)
-                shutil.copy(sample.filepath, dst_path)
-                metaData["imagePath"].append(dst_path.replace("\\", "/"))
+                dstPath = os.path.join(self.BACKGROUND_IMAGE_DIR, uniqueName)
+                shutil.copy(sample.filepath, dstPath)
+                metaData["imagePath"].append(dstPath.replace("\\", "/"))
 
         try:
             with open (f"{self.BACKGROUND_IMAGE_DIR}/metaData.json", "w", encoding="utf-8") as f:
                 json.dump(metaData, f, ensure_ascii=False)
         except Exception as e:
             raise RuntimeError("ERROR: メタデータの保存に失敗しました。")
-
-        print("\n背景画像のダウンロード完了")
 
         return
     
@@ -97,49 +97,41 @@ class DATA_SET:
             with open(self.BACKGROUND_IMAGE_DIR + "/metaData.json", "r", encoding="utf-8") as f:
                 metaData = json.load(f)
 
-            print("\n背景画像の選択中...")
             backgroundImage = random.choice(metaData["imagePath"])
-            print("\n背景画像の選択完了")
 
             return backgroundImage
 
         except FileNotFoundError:
-            print("ERROR: 背景画像をダウンロードしてください。")
             raise RuntimeError("背景画像が見つかりません。")
         
         except json.JSONDecodeError:
-            print("ERROR: 背景画像のメタデータが破損しています。")
             raise RuntimeError("再度生成してください。")
 
     def pickLicensePlates(self):
         licensePlatePaths = []
+        licensePlateClasses = []
         
         try:
             with open(LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "r", encoding="utf-8") as f:
                 metaData = json.load(f)
 
-            print("\nナンバープレートの選択中...")
-
             licensePlateNumber = random.randint(1, self.MAX_LICENSE_PLATES_PER_IMAGE)
 
             while licensePlateNumber > 0:
                 typeOfVehicle = random.randint(0, len(LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_STRING) - 1)
-                licensePlatePaths += random.choice(metaData["imagePath_" + LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_STRING[typeOfVehicle]]).split(",")
+                licensePlatePaths.append(random.choice(metaData["imagePath_" + LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_STRING[typeOfVehicle]]))
+                licensePlateClasses.append(LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_STRING[typeOfVehicle])
                 licensePlateNumber -= 1
-
-            print("\nナンバープレートの選択完了")
             
         except FileNotFoundError:
-            print("ERROR: ナンバープレートを生成してください。")
             raise RuntimeError("ナンバープレートが見つかりません。")
         
         except json.JSONDecodeError:
-            print("ERROR: ナンバープレートのメタデータが破損しています。")
             raise RuntimeError("再度生成してください。")
 
-        return licensePlatePaths
+        return (licensePlatePaths, licensePlateClasses)
         
-    def createDataSet(self, backgroundImagePath, licensePlatePaths, imageNumber):
+    def createDataSet(self, trainingNumber, backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber):
         background = Image.open(backgroundImagePath).convert("RGB")
 
         BACKGROUND_WIDTH = background.size[0]
@@ -155,7 +147,9 @@ class DATA_SET:
         startXCoordinate = 0
         startYCoordinate = 0
         isUsed = False
-
+        
+        drawingInfoList = []
+        
         if isHorizontal:
             cellWidth = BACKGROUND_WIDTH // self.MAX_CELLS_PER_IMAGE
             cellHeight = BACKGROUND_HEIGHT
@@ -181,19 +175,28 @@ class DATA_SET:
             rotateOrNot = random.randint(0, 2)
             rotationXAngle = 0
             rotationYAngle = 0
+
+            originalCorners = np.float32([
+                [0, 0],
+                [licensePlate.size[0] - 1, 0],
+                [licensePlate.size[0] - 1, licensePlate.size[1] - 1],
+                [0, licensePlate.size[1] - 1]
+            ])
+            transformedCorners = originalCorners.copy()
+
+            licensePlateXMinInRotated = 0.0
+            licensePlateYMinInRotated = 0.0
+            licensePlateXMaxInRotated = float(licensePlate.size[0])
+            licensePlateYMaxInRotated = float(licensePlate.size[1])
             
             if rotateOrNot == 1:
-                rotationXAngle = random.randint(-40, 40)
+                rotationXAngle = random.randint(-30, 30)
                 if rotationXAngle != 0:
-                    licensePlate = self.rotateLicensePlate(licensePlate, rotationXAngle, 0)
+                    (licensePlate, licensePlateXMinInRotated, licensePlateYMinInRotated, licensePlateXMaxInRotated, licensePlateYMaxInRotated, transformedCorners) = self.rotateLicensePlate(licensePlate, rotationXAngle, 0, originalCorners)
             elif rotateOrNot == 2:
-                rotationYAngle = random.randint(-40, 40)
+                rotationYAngle = random.randint(-30, 30)
                 if rotationYAngle != 0:
-                    licensePlate = self.rotateLicensePlate(licensePlate, 0, rotationYAngle)
-
-            levelOfNoise = random.randint(0, 5)
-            if levelOfNoise > 0:
-                licensePlate = self.makeNoise(licensePlate, levelOfNoise)
+                    (licensePlate, licensePlateXMinInRotated, licensePlateYMinInRotated, licensePlateXMaxInRotated, licensePlateYMaxInRotated, transformedCorners) = self.rotateLicensePlate(licensePlate, 0, rotationYAngle, originalCorners)
 
             currentLicensePlateWidth = licensePlate.size[0]
             currentLicensePlateHeight = licensePlate.size[1]
@@ -201,11 +204,22 @@ class DATA_SET:
             maxLicensePlateWidth = max(1, cellWidth - (MARGIN * 2))
             maxLicensePlateHeight = max(1, cellHeight - (MARGIN * 2))
 
+            scale = 1.0
             if currentLicensePlateWidth > maxLicensePlateWidth or currentLicensePlateHeight > maxLicensePlateHeight:
                 scale = min(maxLicensePlateWidth / currentLicensePlateWidth, maxLicensePlateHeight / currentLicensePlateHeight)
                 newLicensePlateWidth = max(1, int(currentLicensePlateWidth * scale))
                 newLicensePlateHeight = max(1, int(currentLicensePlateHeight * scale))
-                licensePlate = licensePlate.resize((newLicensePlateWidth, newLicensePlateHeight))
+
+                licensePlateXMinInRotated *= scale
+                licensePlateYMinInRotated *= scale
+                licensePlateXMaxInRotated *= scale
+                licensePlateYMaxInRotated *= scale
+                transformedCorners *= scale 
+
+                licensePlate = licensePlate.resize((newLicensePlateWidth, newLicensePlateHeight), Image.Resampling.LANCZOS)
+
+                currentLicensePlateWidth = licensePlate.size[0]
+                currentLicensePlateHeight = licensePlate.size[1]
 
             if i < len(startCoordinateForEachLicensePlate):
                 licensePlateX = startCoordinateForEachLicensePlate[i][0]
@@ -216,24 +230,60 @@ class DATA_SET:
 
             background.paste(licensePlate, (licensePlateX, licensePlateY), licensePlate)
 
-            self.createLabels(
-                classId = 0,
+            boxWidth  = licensePlateXMaxInRotated - licensePlateXMinInRotated
+            boxHeight = licensePlateYMaxInRotated - licensePlateYMinInRotated
+
+            absoluteXCenter = float(licensePlateX) + licensePlateXMinInRotated + (boxWidth / 2.0)
+            absoluteYCenter = float(licensePlateY) + licensePlateYMinInRotated + (boxHeight / 2.0)
+            
+            classIdRoman = LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN[licensePlateClasses[i]]
+            
+            self.createLabel(
+                trainingNumber = trainingNumber,
+                classId = classIdRoman,
                 imageNumber = imageNumber,
-                xCenter = (licensePlateX + (licensePlate.size[0] / 2)) / BACKGROUND_WIDTH,
-                yCenter = (licensePlateY + (licensePlate.size[1] / 2)) / BACKGROUND_HEIGHT,
-                width = licensePlate.size[0] / BACKGROUND_WIDTH,
-                height = licensePlate.size[1] / BACKGROUND_HEIGHT
+                xCenter = absoluteXCenter / BACKGROUND_WIDTH,
+                yCenter = absoluteYCenter / BACKGROUND_HEIGHT,
+                width = boxWidth / BACKGROUND_WIDTH,
+                height = boxHeight / BACKGROUND_HEIGHT
             )
+
+            drawingCorners = []
+            for corner in transformedCorners:
+                cornerX = int(round(licensePlateX + corner[0]))
+                cornerY = int(round(licensePlateY + corner[1]))
+                drawingCorners.append((cornerX, cornerY))
+
+            drawingInfo = self.getBoxAndLabelDrawingInfo(
+                classId = classIdRoman,
+                drawingCorners = drawingCorners,
+                classIdRoman = classIdRoman,
+                xMinAABB = int(round(licensePlateX + licensePlateXMinInRotated)),
+                yMinAABB = int(round(licensePlateY + licensePlateYMinInRotated)),
+                yMaxAABB = int(round(licensePlateY + licensePlateYMaxInRotated))
+            )
+            drawingInfoList.append(drawingInfo)
+                    
+        levelOfNoise = random.randint(0, 5)
+        if levelOfNoise > 0:
+            background = self.makeNoise(background, levelOfNoise)
+
+        npBackground = np.array(background).copy() 
+        for info in drawingInfoList:
+            npBackground = self.drawBoundingBoxAndLabel(npBackground, info)
+            
+        background = Image.fromarray(npBackground)
 
         return background
 
-    def makeNoise(self, licensePlate, levelOfNoise):
-        npLicensePlate = np.array(licensePlate)
-        noise = np.random.randint(-levelOfNoise * 10, levelOfNoise * 10, npLicensePlate.shape, dtype='int16')
-        noisyLicensePlate = np.clip(npLicensePlate.astype('int16') + noise, 0, 255).astype('uint8')
-        return Image.fromarray(noisyLicensePlate)
+    def makeNoise(self, background, levelOfNoise):
+        npBackground = np.array(background)
+        noise = np.random.randint(-levelOfNoise * 10, levelOfNoise * 10, npBackground.shape, dtype='int16')
+        noisyBackground = np.clip(npBackground.astype('int16') + noise, 0, 255).astype('uint8')
+        return Image.fromarray(noisyBackground)
     
-    def rotateLicensePlate(self, licensePlate, rotationXAngle, rotationYAngle):
+    
+    def rotateLicensePlate(self, licensePlate, rotationXAngle, rotationYAngle, originalCorners):
         npLicensePlate = np.array(licensePlate)
         licensePlateHeight, licensePlateWidth = npLicensePlate.shape[:2]
         focalLength = max(licensePlateWidth, licensePlateHeight) * 1.5 
@@ -271,15 +321,15 @@ class DATA_SET:
         elif rotationYAngle != 0:
             finalRotationMatrix = rotationYMatrix
 
-        for x, y, z_val in srcPoints3D:
-            rotatedPoint = finalRotationMatrix @ np.array([x, y, z_val])
-            Z_prime = rotatedPoint[2] + focalLength 
-            if Z_prime == 0: Z_prime = 1e-6 
+        for x, y, zVal in srcPoints3D:
+            rotatedPoint = finalRotationMatrix @ np.array([x, y, zVal])
+            ZPrime = rotatedPoint[2] + focalLength 
+            if ZPrime == 0: ZPrime = 1e-6 
             
-            x_proj = (focalLength * rotatedPoint[0] / Z_prime) + centerX
-            y_proj = (focalLength * rotatedPoint[1] / Z_prime) + centerY
+            xProj = (focalLength * rotatedPoint[0] / ZPrime) + centerX
+            yProj = (focalLength * rotatedPoint[1] / ZPrime) + centerY
             
-            dstPoints.append([x_proj, y_proj])
+            dstPoints.append([xProj, yProj])
             
         dstPoint = np.float32(dstPoints)
         
@@ -293,7 +343,6 @@ class DATA_SET:
         try: 
             matrix = cv2.getPerspectiveTransform(srcPoint, dstPoint)
         except cv2.error as e:
-            print("ERROR: ナンバープレートの回転に失敗しました。")
             raise RuntimeError("再度生成してください。")
 
         licensePlatePositionTransformed = cv2.perspectiveTransform(srcPoint.reshape(-1, 1, 2), matrix)
@@ -319,7 +368,11 @@ class DATA_SET:
         finalMatrix = matrixShift @ matrix
 
         if np.linalg.det(finalMatrix) == 0:
-            return licensePlate
+            return (licensePlate, 0.0, 0.0, float(licensePlateWidth), float(licensePlateHeight), originalCorners)
+
+        transformedCorners = cv2.perspectiveTransform(originalCorners.reshape(-1, 1, 2), finalMatrix)[:, 0, :]
+        transformedCorners[:, 0] += 0.5 
+        transformedCorners[:, 1] += 0.5 
         
         affinedLicensePlate = cv2.warpPerspective(
             npLicensePlate, 
@@ -330,10 +383,17 @@ class DATA_SET:
             borderValue=(0, 0, 0, 0)
         )
 
-        return Image.fromarray(affinedLicensePlate, 'RGBA')
+        return (
+            Image.fromarray(affinedLicensePlate, 'RGBA'),
+            minLicensePlateXCoordinate,
+            minLicensePlateYCoordinate,
+            maxLicensePlateXCoordinate,
+            maxLicensePlateYCoordinate,
+            transformedCorners
+        )
     
-    def createLabels(self, classId, imageNumber, xCenter, yCenter, width, height):
-        labelFilePath = f"{self.DATA_SET_LABELS_DIR}/{imageNumber:06}.txt"
+    def createLabel(self, trainingNumber, classId, imageNumber, xCenter, yCenter, width, height):
+        labelFilePath = f"{self.DATA_SET_LABELS_DIR}/{imageNumber:0{len(str(trainingNumber)) + 1}}.txt"
         label = f"{classId} {xCenter:.6f} {yCenter:.6f} {width:.6f} {height:.6f}"
         
         try:
@@ -341,3 +401,100 @@ class DATA_SET:
                 f.write(label + "\n")
         except FileNotFoundError:
             raise RuntimeError("ERROR: ラベルファイルの作成に失敗しました。")
+
+    def getBoxAndLabelDrawingInfo(self, classId, drawingCorners, classIdRoman, xMinAABB, yMinAABB, yMaxAABB):
+        romanValue = list(LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN.values())
+        classIdInt = romanValue.index(classId)
+        className = LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_STRING[classIdInt]
+        
+        colorRgb = LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_COLOR_RGB.get(className)
+
+        return {
+            "className": className,
+            "classIdRoman": classIdRoman,
+            "colorRgb": colorRgb,
+            "drawingCorners": np.array(drawingCorners, dtype=np.int32),
+            "xMinAABB": xMinAABB, 
+            "yMinAABB": yMinAABB, 
+            "yMaxAABB": yMaxAABB,
+        }
+    
+    def drawBoundingBoxAndLabel(self, image, boxData):
+        className = boxData["className"]
+        classIdRoman = boxData["classIdRoman"]
+        colorRgb = boxData["colorRgb"]
+        drawingCorners = boxData["drawingCorners"]
+        yMinAABB = boxData["yMinAABB"]
+        
+        cv2.polylines(
+            img=image,
+            pts=[drawingCorners],
+            isClosed=True,
+            color=colorRgb,
+            thickness=2
+        )
+
+        pilImage = Image.fromarray(image)
+        draw = ImageDraw.Draw(pilImage)
+        IMAGE_WIDTH, IMAGE_HEIGHT = pilImage.size
+
+        font0 = "./fonts/HiraginoMaruGothicProNW4.otf"
+        try:
+            fontSize = 20
+            font = ImageFont.truetype(font0, fontSize)
+        except IOError:
+            className = classIdRoman
+            font = ImageFont.load_default()
+            fontSize = 12
+
+        dummyImg = Image.new('RGB', (1, 1))
+        dummyDraw = ImageDraw.Draw(dummyImg)
+        bbox = dummyDraw.textbbox((0, 0), className, font=font)
+        textWidth = bbox[2] - bbox[0]
+        textHeight = bbox[3] - bbox[1]
+        
+        MARGIN = 10
+        
+        minY_corner = np.min(drawingCorners[:, 1])
+        maxY_corner = np.max(drawingCorners[:, 1])
+        
+        labelX_reference = np.min(drawingCorners[:, 0])
+
+        labelY_try_above = minY_corner - textHeight - MARGIN
+        labelY_try_below = maxY_corner + MARGIN
+        
+        labelY = -1
+
+        if labelY_try_above >= 0:
+            labelY = labelY_try_above
+        elif labelY_try_below + textHeight + 5 <= IMAGE_HEIGHT:
+            labelY = labelY_try_below
+        else:
+            labelY = min(labelY_try_below, IMAGE_HEIGHT - textHeight - 5)
+            if labelY < yMinAABB:
+                labelY = yMinAABB + MARGIN
+        
+        labelX = labelX_reference
+        
+        if labelX + textWidth + 10 > IMAGE_WIDTH:
+            labelX = IMAGE_WIDTH - textWidth - 10
+        
+        if labelX < 0:
+            labelX = 0
+            
+        labelXMax = labelX + textWidth + 10
+        labelYMax = labelY + textHeight + 5
+        
+        draw.rectangle(
+            [(labelX, labelY), (labelXMax, labelYMax)],
+            fill=colorRgb
+        )
+        
+        draw.text(
+            (labelX + 5, labelY + 2),
+            className,
+            font=font,
+            fill=(255, 255, 255)
+        )
+
+        return np.array(pilImage)
