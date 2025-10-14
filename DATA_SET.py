@@ -13,8 +13,9 @@ import cv2
 
 class DATA_SET:
     BACKGROUND_IMAGE_DIR = "./background_images"
-    DATA_SET_IMAGES_DIR = "./yolo_data/images"
-    DATA_SET_LABELS_DIR = "./yolo_data/labels"
+    DATA_SET_DIR = "./yolo_data"
+    DATA_SET_IMAGES_DIR = f"{DATA_SET_DIR}/images"
+    DATA_SET_LABELS_DIR = f"{DATA_SET_DIR}/labels"
     IMAGES_TRAIN_DIR = f"{DATA_SET_IMAGES_DIR}/train"
     IMAGES_VAL_DIR = f"{DATA_SET_IMAGES_DIR}/val"
     LABELS_TRAIN_DIR = f"{DATA_SET_LABELS_DIR}/train"
@@ -77,6 +78,10 @@ class DATA_SET:
                 splittedValidationNumber += 1
                 
             print(f"データセット {imageNumber} / {trainingNumber} を生成しました。")
+        
+        print("YAMLファイルを作成しています。")
+        self.createYaml()
+        print("YAMLファイルを作成しました。")
 
         print("データセットの生成が完了しました。")
 
@@ -529,3 +534,30 @@ class DATA_SET:
                     f.write(label + "\n")
             except FileNotFoundError:
                 raise RuntimeError("ERROR: ラベルファイルの作成に失敗しました。")
+            
+    def createYaml(self):
+        classNames = [f"'{name}'" for name in LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN.values()]
+        names = ", ".join(classNames)
+
+        data = f"""
+# train and val data as 
+# 1) directory: path/images/,
+# 2) file: path/images.txt, or
+# 3) list: [path1/images/, path2/images/]
+
+train: {self.IMAGES_TRAIN_DIR}
+val: {self.IMAGES_VAL_DIR}
+
+# number of classes
+nc: {LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN.__len__()}
+
+# class names
+names: [{names}]
+
+"""
+
+        try:
+            with open(self.DATA_SET_DIR + "/data.yaml", "w") as f:
+                f.write(data.strip())
+        except OSError:
+            raise RuntimeError("ERROR: YAMLファイルの保存に失敗しました。")
