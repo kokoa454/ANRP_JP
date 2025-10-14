@@ -3,3 +3,5 @@
 /__pycache__
 /background_images
 /yolo_data
+/yolo_output
+yolov12n.pt
