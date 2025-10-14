@@ -1,19 +1,23 @@
 __package__ = "DATA_SET"
 
 import LICENSE_PLATE
+import os
+
+os.environ["FIFTYONE_DATABASE_DIR"] = "./fiftyone_db"
+os.environ["FIFTYONE_DATASET_ZOO_DIR"] = "./fiftyone_cache"
 import fiftyone as fo
 import fiftyone.zoo as foz
+
 import random
 import json
 from PIL import Image, ImageDraw, ImageFont
 import shutil
-import os
 import numpy as np
 import cv2
 
 class DATA_SET:
-    BACKGROUND_IMAGE_DIR = "./background_images"
-    DATA_SET_DIR = "./yolo_data"
+    BACKGROUND_IMAGE_DIR = "./fiftyone_cache/open-images-v7/train/data"
+    DATA_SET_DIR = "./data_set"
     
     DATA_SET_IMAGES_SUBDIR = "images"
     DATA_SET_LABELS_SUBDIR = "labels"
@@ -67,7 +71,7 @@ class DATA_SET:
         for imageNumber in range(1, trainingNumber + 1):
             backgroundImagePath = self.pickBackgroundImage()
             (licensePlatePaths, licensePlateClasses) = self.pickLicensePlates()
-            self.dataSetImage, self.dataSetLabel = self.createDataSet(trainingNumber, backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber)
+            self.dataSetImage, self.dataSetLabel = self.createDataSet(backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber)
 
             if imageNumber <= splittedTrainingNumberCount:
                 self.saveDataSet(self.dataSetImage, self.dataSetLabel, trainingNumber, splittedTrainingNumber, isTrain=True)
@@ -103,13 +107,10 @@ class DATA_SET:
         )
 
         backgroundImages.name = self.DATA_SET_NAME
-        backgroundImages.export(self.BACKGROUND_IMAGE_DIR, dataset_type = fo.types.ImageDirectory)
 
-        for sample in backgroundImages:
-            if sample.filepath.lower().endswith((".jpg", ".jpeg", ".png")):
-                uniqueName = f"{len(metaData['imagePath']):06}_{os.path.basename(sample.filepath)}"
-                dstPath = os.path.join(self.BACKGROUND_IMAGE_DIR, uniqueName)
-                shutil.copy(sample.filepath, dstPath)
+        for fname in sorted(os.listdir(self.BACKGROUND_IMAGE_DIR)):
+            if fname.lower().endswith((".jpg", ".jpeg", ".png")):
+                dstPath = os.path.join(self.BACKGROUND_IMAGE_DIR, fname)
                 metaData["imagePath"].append(dstPath.replace("\\", "/"))
 
         try:
@@ -117,7 +118,6 @@ class DATA_SET:
                 json.dump(metaData, f, ensure_ascii=False)
         except Exception as e:
             raise RuntimeError("ERROR: メタデータの保存に失敗しました。")
-
         return
     
     def pickBackgroundImage(self):
@@ -159,7 +159,7 @@ class DATA_SET:
 
         return (licensePlatePaths, licensePlateClasses)
         
-    def createDataSet(self, trainingNumber, backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber):
+    def createDataSet(self, backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber):
         background = Image.open(backgroundImagePath).convert("RGB")
 
         BACKGROUND_WIDTH = background.size[0]
@@ -291,9 +291,20 @@ class DATA_SET:
             height = boxHeight / BACKGROUND_HEIGHT
             labels.append(f"{classIdInt} {xCenter:.6f} {yCenter:.6f} {width:.6f} {height:.6f}")
                         
-        levelOfNoise = random.randint(0, 5)
-        if levelOfNoise > 0:
+        randomNumber = random.randint(0, 1)
+        if randomNumber > 0:
+            levelOfNoise = random.randint(1, 5)
             background = self.makeNoise(background, levelOfNoise)
+
+        randomNumber = random.randint(0, 1)
+        if randomNumber > 0:
+            levelOfBlur = random.randint(1, 5)
+            background = self.makeBlur(background, levelOfBlur)
+
+        randomNumber = random.randint(0, 1)
+        if randomNumber > 0:
+            levelOfJitter = random.randint(1, 5)
+            background = self.makeJitter(background, levelOfJitter)
 
         npBackground = np.array(background).copy() 
         for info in drawingInfoList:
@@ -307,7 +318,27 @@ class DATA_SET:
         npBackground = np.array(background)
         noise = np.random.randint(-levelOfNoise * 10, levelOfNoise * 10, npBackground.shape, dtype='int16')
         noisyBackground = np.clip(npBackground.astype('int16') + noise, 0, 255).astype('uint8')
+
         return Image.fromarray(noisyBackground)
+    
+    def makeBlur(self, background, levelOfBlur):
+        npBackground = np.array(background)
+        kernelSize = int(levelOfBlur * 2) + 1
+        
+        return Image.fromarray(cv2.GaussianBlur(npBackground, (kernelSize, kernelSize), 0))
+    
+    def makeJitter(self, background, levelOfJitter):
+        npBackground = np.array(background).astype(np.float32) / 255.0
+        hsvBackground = cv2.cvtColor(npBackground, cv2.COLOR_RGB2HSV)
+
+        saturation = 1.0 + random.uniform(-levelOfJitter, levelOfJitter) / 8.0
+        brightness = 1.0 + random.uniform(-levelOfJitter, levelOfJitter) / 8.0
+        hsvBackground[:, :, 1] = np.clip(hsvBackground[:, :, 1] * saturation, 0.0, 1.0)
+        hsvBackground[:, :, 2] = np.clip(hsvBackground[:, :, 2] * brightness, 0.0, 1.0)
+        rgbBackground = cv2.cvtColor(hsvBackground, cv2.COLOR_HSV2RGB)
+        rgbBackground = (rgbBackground * 255).astype(np.uint8)
+
+        return Image.fromarray(rgbBackground)
     
     def rotateLicensePlate(self, licensePlate, rotationXAngle, rotationYAngle, originalCorners):
         npLicensePlate = np.array(licensePlate)
