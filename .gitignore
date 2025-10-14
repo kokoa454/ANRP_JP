@@ -1,7 +1,8 @@
 /fonts
 /license_plate_images
 /__pycache__
-/background_images
-/yolo_data
+/fiftyone_cache
+/fiftyone_db
+/data_set
 /yolo_output
 yolov12n.pt
