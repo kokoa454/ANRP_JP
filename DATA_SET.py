@@ -14,12 +14,18 @@ import cv2
 class DATA_SET:
     BACKGROUND_IMAGE_DIR = "./background_images"
     DATA_SET_DIR = "./yolo_data"
-    DATA_SET_IMAGES_DIR = f"{DATA_SET_DIR}/images"
-    DATA_SET_LABELS_DIR = f"{DATA_SET_DIR}/labels"
-    IMAGES_TRAIN_DIR = f"{DATA_SET_IMAGES_DIR}/train"
-    IMAGES_VAL_DIR = f"{DATA_SET_IMAGES_DIR}/val"
-    LABELS_TRAIN_DIR = f"{DATA_SET_LABELS_DIR}/train"
-    LABELS_VAL_DIR = f"{DATA_SET_LABELS_DIR}/val"
+    
+    DATA_SET_IMAGES_SUBDIR = "images"
+    DATA_SET_LABELS_SUBDIR = "labels"
+
+    YOLO_IMAGES_TRAIN_DIR = f"{DATA_SET_IMAGES_SUBDIR}/train"
+    YOLO_IMAGES_VAL_DIR = f"{DATA_SET_IMAGES_SUBDIR}/val"
+
+    IMAGES_TRAIN_DIR = f"{DATA_SET_DIR}/{YOLO_IMAGES_TRAIN_DIR}"
+    IMAGES_VAL_DIR = f"{DATA_SET_DIR}/{YOLO_IMAGES_VAL_DIR}"
+    LABELS_TRAIN_DIR = f"{DATA_SET_DIR}/{DATA_SET_LABELS_SUBDIR}/train"
+    LABELS_VAL_DIR = f"{DATA_SET_DIR}/{DATA_SET_LABELS_SUBDIR}/val"
+    
     DATA_SET_NAME = "data_set"
     MAX_LICENSE_PLATES_PER_IMAGE = 3
     MAX_CELLS_PER_IMAGE = 3
@@ -34,27 +40,20 @@ class DATA_SET:
             print("前回の背景画像を削除しました。")
         os.makedirs(self.BACKGROUND_IMAGE_DIR)
 
-        if os.path.exists(self.DATA_SET_IMAGES_DIR):
+        if os.path.exists(self.DATA_SET_DIR):
             print("\n前回のデータセットを削除します。")
-            fo.delete_datasets(self.DATA_SET_NAME)
-            shutil.rmtree(self.DATA_SET_IMAGES_DIR)
+            shutil.rmtree(self.DATA_SET_DIR)
             print("前回のデータセットを削除しました。")
-        os.makedirs(self.DATA_SET_IMAGES_DIR)
-
-        if os.path.exists(self.DATA_SET_LABELS_DIR):
-            print("\n前回のラベルを削除します。")
-            shutil.rmtree(self.DATA_SET_LABELS_DIR)
-            print("前回のラベルを削除しました。")
-        os.makedirs(self.DATA_SET_LABELS_DIR)
-
+        os.makedirs(self.DATA_SET_DIR)
+        
         if not os.path.exists(self.IMAGES_TRAIN_DIR):
-                    os.makedirs(self.IMAGES_TRAIN_DIR)
+            os.makedirs(self.IMAGES_TRAIN_DIR)
         if not os.path.exists(self.IMAGES_VAL_DIR):
-                    os.makedirs(self.IMAGES_VAL_DIR)
+            os.makedirs(self.IMAGES_VAL_DIR)
         if not os.path.exists(self.LABELS_TRAIN_DIR):
-                    os.makedirs(self.LABELS_TRAIN_DIR)
+            os.makedirs(self.LABELS_TRAIN_DIR)
         if not os.path.exists(self.LABELS_VAL_DIR):
-                    os.makedirs(self.LABELS_VAL_DIR)
+            os.makedirs(self.LABELS_VAL_DIR)
 
         print("\n背景画像をダウンロードしています。")
         self.downloadBackgroundImage(trainingNumber)
@@ -284,12 +283,14 @@ class DATA_SET:
             )
             drawingInfoList.append(drawingInfo)
 
+            className = licensePlateClasses[i]
+            classIdInt = LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_STRING.index(className)
             xCenter = absoluteXCenter / BACKGROUND_WIDTH
             yCenter = absoluteYCenter / BACKGROUND_HEIGHT
             width = boxWidth / BACKGROUND_WIDTH
             height = boxHeight / BACKGROUND_HEIGHT
-            labels.append(f"{classIdRoman} {xCenter:.6f} {yCenter:.6f} {width:.6f} {height:.6f}")
-                    
+            labels.append(f"{classIdInt} {xCenter:.6f} {yCenter:.6f} {width:.6f} {height:.6f}")
+                        
         levelOfNoise = random.randint(0, 5)
         if levelOfNoise > 0:
             background = self.makeNoise(background, levelOfNoise)
@@ -545,8 +546,8 @@ class DATA_SET:
 # 2) file: path/images.txt, or
 # 3) list: [path1/images/, path2/images/]
 
-train: {self.IMAGES_TRAIN_DIR}
-val: {self.IMAGES_VAL_DIR}
+train: {self.YOLO_IMAGES_TRAIN_DIR}
+val: {self.YOLO_IMAGES_VAL_DIR}
 
 # number of classes
 nc: {LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN.__len__()}
