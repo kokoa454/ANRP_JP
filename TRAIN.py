@@ -3,6 +3,7 @@ __package__ = "TRAIN"
 from DATA_SET import DATA_SET
 from ultralytics import YOLO
 import os
+import torch
 
 class TRAIN:
     try:
@@ -14,7 +15,7 @@ class TRAIN:
     
     MODEL_NAME = "yolov12n.pt"
     DATA_PATH = f"{DATA_SET.DATA_SET_DIR}/data.yaml"
-    EPOCHS = 500
+    EPOCHS = 100
     BATCH_SIZE = 16
     IMGSZ = 640
     NAME = "license_plate_12n"
@@ -33,7 +34,7 @@ class TRAIN:
             batch = self.BATCH_SIZE,
             imgsz = self.IMGSZ,
             name = self.NAME,
-            project = self.PROJECT_PATH
+            project = self.PROJECT_PATH,
         )
         except RuntimeError:
             raise RuntimeError("ERROR: 学習に失敗しました。")

@@ -4,6 +4,7 @@ import TRAIN
 
 def main():
     print("【ANRP_JP】\n")
+    
     while True:
         print("""\n作業番号 (
         0: ナンバープレート生成
