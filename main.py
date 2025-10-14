@@ -2,8 +2,8 @@ import LICENSE_PLATE
 import DATA_SET
 
 def main():
+    print("【ANRP_JP】\n")
     while True:
-        print("ANRP_JP\n")
         print("""\n作業番号 (
         0: ナンバープレート生成
         1: データセット生成

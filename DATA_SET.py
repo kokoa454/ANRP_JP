@@ -157,7 +157,7 @@ class DATA_SET:
             cellWidth = BACKGROUND_WIDTH
             cellHeight = BACKGROUND_HEIGHT // self.MAX_CELLS_PER_IMAGE
 
-        for cell in range(self.MAX_CELLS_PER_IMAGE):
+        for _ in range(self.MAX_CELLS_PER_IMAGE):
             if isHorizontal:
                 cellX = startXCoordinate + MARGIN
                 cellY = random.randint(MARGIN, max(MARGIN, cellHeight - LICENSE_PLATE_HEIGHT - MARGIN))
@@ -321,8 +321,8 @@ class DATA_SET:
         elif rotationYAngle != 0:
             finalRotationMatrix = rotationYMatrix
 
-        for x, y, zVal in srcPoints3D:
-            rotatedPoint = finalRotationMatrix @ np.array([x, y, zVal])
+        for x, y, z in srcPoints3D:
+            rotatedPoint = finalRotationMatrix @ np.array([x, y, z])
             ZPrime = rotatedPoint[2] + focalLength 
             if ZPrime == 0: ZPrime = 1e-6 
             
@@ -427,11 +427,11 @@ class DATA_SET:
         yMinAABB = boxData["yMinAABB"]
         
         cv2.polylines(
-            img=image,
-            pts=[drawingCorners],
-            isClosed=True,
-            color=colorRgb,
-            thickness=2
+            img = image,
+            pts = [drawingCorners],
+            isClosed = True,
+            color = colorRgb,
+            thickness = 2
         )
 
         pilImage = Image.fromarray(image)
@@ -439,6 +439,7 @@ class DATA_SET:
         IMAGE_WIDTH, IMAGE_HEIGHT = pilImage.size
 
         font0 = "./fonts/HiraginoMaruGothicProNW4.otf"
+
         try:
             fontSize = 20
             font = ImageFont.truetype(font0, fontSize)
@@ -458,23 +459,23 @@ class DATA_SET:
         minY_corner = np.min(drawingCorners[:, 1])
         maxY_corner = np.max(drawingCorners[:, 1])
         
-        labelX_reference = np.min(drawingCorners[:, 0])
+        labelXReference = np.min(drawingCorners[:, 0])
 
-        labelY_try_above = minY_corner - textHeight - MARGIN
-        labelY_try_below = maxY_corner + MARGIN
+        labelYTryAbove = minY_corner - textHeight - MARGIN
+        labelYTryBelow = maxY_corner + MARGIN
         
         labelY = -1
 
-        if labelY_try_above >= 0:
-            labelY = labelY_try_above
-        elif labelY_try_below + textHeight + 5 <= IMAGE_HEIGHT:
-            labelY = labelY_try_below
+        if labelYTryAbove >= 0:
+            labelY = labelYTryAbove
+        elif labelYTryBelow + textHeight + 5 <= IMAGE_HEIGHT:
+            labelY = labelYTryBelow
         else:
-            labelY = min(labelY_try_below, IMAGE_HEIGHT - textHeight - 5)
+            labelY = min(labelYTryBelow, IMAGE_HEIGHT - textHeight - 5)
             if labelY < yMinAABB:
                 labelY = yMinAABB + MARGIN
         
-        labelX = labelX_reference
+        labelX = labelXReference
         
         if labelX + textWidth + 10 > IMAGE_WIDTH:
             labelX = IMAGE_WIDTH - textWidth - 10
