@@ -1,5 +1,6 @@
 import LICENSE_PLATE 
 import DATA_SET
+import TRAIN
 
 def main():
     print("【ANRP_JP】\n")
@@ -7,14 +8,15 @@ def main():
         print("""\n作業番号 (
         0: ナンバープレート生成
         1: データセット生成
-        2: 終了
+        2: 学習
+        3: 終了
         )\n""")
 
         try:
             selectedNum = int(input("作業番号?: "))
             
-            if selectedNum not in [0, 1, 2]:
-                print("0~2の数字を入力してください。\n")
+            if selectedNum not in [0, 1, 2, 3]:
+                print("0~3の数字を入力してください。\n")
                 continue
         except ValueError:
             print("数字を入力してください。\n")
@@ -51,9 +53,12 @@ def main():
             print("\n")
 
         elif selectedNum == 2:
+            TRAIN.TRAIN()
+
+        elif selectedNum == 3:
             break
     
         else:
-            print("0~2の数字を入力してください。\n")
+            print("0~3の数字を入力してください。\n")
 
 main()
