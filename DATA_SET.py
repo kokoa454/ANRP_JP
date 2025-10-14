@@ -13,8 +13,12 @@ import cv2
 
 class DATA_SET:
     BACKGROUND_IMAGE_DIR = "./background_images"
-    DATA_SET_IMAGES_DIR = "./data_set/images"
-    DATA_SET_LABELS_DIR = "./data_set/labels"
+    DATA_SET_IMAGES_DIR = "./yolo_data/images"
+    DATA_SET_LABELS_DIR = "./yolo_data/labels"
+    IMAGES_TRAIN_DIR = f"{DATA_SET_IMAGES_DIR}/train"
+    IMAGES_VAL_DIR = f"{DATA_SET_IMAGES_DIR}/val"
+    LABELS_TRAIN_DIR = f"{DATA_SET_LABELS_DIR}/train"
+    LABELS_VAL_DIR = f"{DATA_SET_LABELS_DIR}/val"
     DATA_SET_NAME = "data_set"
     MAX_LICENSE_PLATES_PER_IMAGE = 3
     MAX_CELLS_PER_IMAGE = 3
@@ -42,16 +46,36 @@ class DATA_SET:
             print("前回のラベルを削除しました。")
         os.makedirs(self.DATA_SET_LABELS_DIR)
 
+        if not os.path.exists(self.IMAGES_TRAIN_DIR):
+                    os.makedirs(self.IMAGES_TRAIN_DIR)
+        if not os.path.exists(self.IMAGES_VAL_DIR):
+                    os.makedirs(self.IMAGES_VAL_DIR)
+        if not os.path.exists(self.LABELS_TRAIN_DIR):
+                    os.makedirs(self.LABELS_TRAIN_DIR)
+        if not os.path.exists(self.LABELS_VAL_DIR):
+                    os.makedirs(self.LABELS_VAL_DIR)
+
         print("\n背景画像をダウンロードしています。")
         self.downloadBackgroundImage(trainingNumber)
         print("背景画像のダウンロードが完了しました。")
+
+        splittedTrainingNumberCount = int(trainingNumber * 0.8)
+        splittedTrainingNumber = 1
+        splittedValidationNumber = 1
 
         print("\nデータセットを生成しています。")
         for imageNumber in range(1, trainingNumber + 1):
             backgroundImagePath = self.pickBackgroundImage()
             (licensePlatePaths, licensePlateClasses) = self.pickLicensePlates()
-            self.dataSet = self.createDataSet(trainingNumber, backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber)
-            self.dataSet.save(self.DATA_SET_IMAGES_DIR + f"/{imageNumber:0{len(str(trainingNumber)) + 1}}.jpg")
+            self.dataSetImage, self.dataSetLabel = self.createDataSet(trainingNumber, backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber)
+
+            if imageNumber <= splittedTrainingNumberCount:
+                self.saveDataSet(self.dataSetImage, self.dataSetLabel, trainingNumber, splittedTrainingNumber, isTrain=True)
+                splittedTrainingNumber += 1
+            else:
+                self.saveDataSet(self.dataSetImage, self.dataSetLabel, trainingNumber, splittedValidationNumber , isTrain=False)
+                splittedValidationNumber += 1
+                
             print(f"データセット {imageNumber} / {trainingNumber} を生成しました。")
 
         print("データセットの生成が完了しました。")
@@ -147,6 +171,7 @@ class DATA_SET:
         startXCoordinate = 0
         startYCoordinate = 0
         isUsed = False
+        labels = []
         
         drawingInfoList = []
         
@@ -237,16 +262,6 @@ class DATA_SET:
             absoluteYCenter = float(licensePlateY) + licensePlateYMinInRotated + (boxHeight / 2.0)
             
             classIdRoman = LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN[licensePlateClasses[i]]
-            
-            self.createLabel(
-                trainingNumber = trainingNumber,
-                classId = classIdRoman,
-                imageNumber = imageNumber,
-                xCenter = absoluteXCenter / BACKGROUND_WIDTH,
-                yCenter = absoluteYCenter / BACKGROUND_HEIGHT,
-                width = boxWidth / BACKGROUND_WIDTH,
-                height = boxHeight / BACKGROUND_HEIGHT
-            )
 
             drawingCorners = []
             for corner in transformedCorners:
@@ -263,6 +278,12 @@ class DATA_SET:
                 yMaxAABB = int(round(licensePlateY + licensePlateYMaxInRotated))
             )
             drawingInfoList.append(drawingInfo)
+
+            xCenter = absoluteXCenter / BACKGROUND_WIDTH
+            yCenter = absoluteYCenter / BACKGROUND_HEIGHT
+            width = boxWidth / BACKGROUND_WIDTH
+            height = boxHeight / BACKGROUND_HEIGHT
+            labels.append(f"{classIdRoman} {xCenter:.6f} {yCenter:.6f} {width:.6f} {height:.6f}")
                     
         levelOfNoise = random.randint(0, 5)
         if levelOfNoise > 0:
@@ -272,16 +293,15 @@ class DATA_SET:
         for info in drawingInfoList:
             npBackground = self.drawBoundingBoxAndLabel(npBackground, info)
             
-        background = Image.fromarray(npBackground)
+        image = Image.fromarray(npBackground)
 
-        return background
+        return image, labels
 
     def makeNoise(self, background, levelOfNoise):
         npBackground = np.array(background)
         noise = np.random.randint(-levelOfNoise * 10, levelOfNoise * 10, npBackground.shape, dtype='int16')
         noisyBackground = np.clip(npBackground.astype('int16') + noise, 0, 255).astype('uint8')
         return Image.fromarray(noisyBackground)
-    
     
     def rotateLicensePlate(self, licensePlate, rotationXAngle, rotationYAngle, originalCorners):
         npLicensePlate = np.array(licensePlate)
@@ -392,16 +412,6 @@ class DATA_SET:
             transformedCorners
         )
     
-    def createLabel(self, trainingNumber, classId, imageNumber, xCenter, yCenter, width, height):
-        labelFilePath = f"{self.DATA_SET_LABELS_DIR}/{imageNumber:0{len(str(trainingNumber)) + 1}}.txt"
-        label = f"{classId} {xCenter:.6f} {yCenter:.6f} {width:.6f} {height:.6f}"
-        
-        try:
-            with open(labelFilePath, "a") as f:
-                f.write(label + "\n")
-        except FileNotFoundError:
-            raise RuntimeError("ERROR: ラベルファイルの作成に失敗しました。")
-
     def getBoxAndLabelDrawingInfo(self, classId, drawingCorners, classIdRoman, xMinAABB, yMinAABB, yMaxAABB):
         romanValue = list(LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN.values())
         classIdInt = romanValue.index(classId)
@@ -499,3 +509,23 @@ class DATA_SET:
         )
 
         return np.array(pilImage)
+    
+    def saveDataSet(self, image, labels, trainingNumber, imageNumber, isTrain):
+        try:
+            if isTrain:
+                imagePath = f"{self.IMAGES_TRAIN_DIR}/{imageNumber:0{len(str(trainingNumber)) + 1}}.jpg"
+                labelPath = f"{self.LABELS_TRAIN_DIR}/{imageNumber:0{len(str(trainingNumber)) + 1}}.txt"
+            else:
+                imagePath = f"{self.IMAGES_VAL_DIR}/{imageNumber:0{len(str(trainingNumber)) + 1}}.jpg"
+                labelPath = f"{self.LABELS_VAL_DIR}/{imageNumber:0{len(str(trainingNumber)) + 1}}.txt"
+                
+            image.save(imagePath)
+        except OSError:
+            raise RuntimeError("ERROR: 画像ファイルの保存に失敗しました。")
+
+        for label in labels:
+            try:
+                with open(labelPath, "a") as f:
+                    f.write(label + "\n")
+            except FileNotFoundError:
+                raise RuntimeError("ERROR: ラベルファイルの作成に失敗しました。")
