@@ -4,6 +4,7 @@ from DATA_SET import DATA_SET
 from ultralytics import YOLO
 import os
 import re
+import torch
 
 class TRAIN:
     OUTPUT_DIR = "./yolo_output"
@@ -73,15 +74,21 @@ class TRAIN:
             raise RuntimeError("ERROR: モデルが見つかりません。")
 
         try:
+            if(torch.cuda.is_available()): # ultralyticsをインストール後、pytorchがcpu版の場合、pytorchを新たに再インストール(cuda13.0だったらcu130)を行う必要がある
+                device = 0
+            else:
+                device = 1
             results = self.MODEL.train(
-                data = self.DATA_PATH,
-                epochs = trainingNumber,
-                patience = self.PATIENCE,
-                batch = self.BATCH_SIZE,
-                imgsz = self.IMGSZ,
-                name = self.NAME,
-                project = self.PROJECT_PATH,
-            )
+                    data = self.DATA_PATH,
+                    epochs = trainingNumber,
+                    patience = self.PATIENCE,
+                    batch = self.BATCH_SIZE,
+                    imgsz = self.IMGSZ,
+                    name = self.NAME,
+                    project = self.PROJECT_PATH,
+                    workers = 0,
+                    device = device
+                )
         except RuntimeError:
             raise RuntimeError("ERROR: 学習に失敗しました。")
 
