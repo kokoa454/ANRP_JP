@@ -11,14 +11,13 @@ class TRAIN:
     LAST_PT_PATH = None
     MODEL_NAME = "yolo11n"
     DATA_PATH = f"{DATA_SET.DATA_SET_DIR}/data.yaml"
-    EPOCHS = 100
     PATIENCE = 10
     BATCH_SIZE = 16
     IMGSZ = 640
     NAME = "license_plate_11n"
     PROJECT_PATH = "yolo_output"
 
-    def __init__(self):
+    def __init__(self, trainingNumber):
         print(f"{self.MODEL_NAME}による学習を開始します。(Epochs: {self.EPOCHS}, Batch Size: {self.BATCH_SIZE}, Image Size: {self.IMGSZ}, Name: {self.NAME})")
 
         if not os.path.exists(self.PROJECT_PATH):
@@ -75,7 +74,7 @@ class TRAIN:
         try:
             results = self.MODEL.train(
                 data = self.DATA_PATH,
-                epochs = self.EPOCHS,
+                epochs = trainingNumber,
                 patience = self.PATIENCE,
                 batch = self.BATCH_SIZE,
                 imgsz = self.IMGSZ,
