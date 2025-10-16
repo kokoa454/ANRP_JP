@@ -19,7 +19,7 @@ class TRAIN:
 
     def __init__(self, trainingNumber):
         trainingNumber = int(trainingNumber)
-        print(f"{self.MODEL_NAME}による学習を開始します。(Epochs: {self.EPOCHS}, Batch Size: {self.BATCH_SIZE}, Image Size: {self.IMGSZ}, Name: {self.NAME})")
+        print(f"{self.MODEL_NAME}による学習を開始します。(Epochs: {trainingNumber}, Batch Size: {self.BATCH_SIZE}, Image Size: {self.IMGSZ}, Name: {self.NAME})")
 
         if not os.path.exists(self.PROJECT_PATH):
             os.makedirs(self.PROJECT_PATH)
