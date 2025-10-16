@@ -54,7 +54,18 @@ def main():
             print("\n")
 
         elif selectedNum == 2:
-            TRAIN.TRAIN()
+            try:
+                trainingNumber = int(input("Epoch数?: "))
+
+                if trainingNumber < 1:
+                    print("1以上の数字を入力してください。\n")
+                    continue
+            except ValueError:
+                print("数字を入力してください。\n")
+                continue
+
+            TRAIN.TRAIN(trainingNumber)
+            print("\n")
 
         elif selectedNum == 3:
             break
