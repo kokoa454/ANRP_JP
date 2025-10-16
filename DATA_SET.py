@@ -7,6 +7,7 @@ os.environ["FIFTYONE_DATABASE_DIR"] = "./fiftyone_db"
 os.environ["FIFTYONE_DATASET_ZOO_DIR"] = "./fiftyone_cache"
 import fiftyone as fo
 import fiftyone.zoo as foz
+from fiftyone import ViewField as fovf
 
 import random
 import json
@@ -31,12 +32,37 @@ class DATA_SET:
     LABELS_VAL_DIR = f"{DATA_SET_DIR}/{DATA_SET_LABELS_SUBDIR}/val"
     
     DATA_SET_NAME = "data_set"
-    MAX_LICENSE_PLATES_PER_IMAGE = 3
-    MAX_CELLS_PER_IMAGE = 3
+    MIN_SCALE = 0.1
+    MAX_SCALE = 1.0
+    MARGIN = 10
+    MAX_PLACEMENT_ATTEMPTS = 50
+    MAX_LICENSE_PLATES_PER_IMAGE = 5
     MAX_OVERLAP_RATE = 0.0
+
+    TARGET_CLASS = [
+        "Skyscraper",
+        "Tower",
+        "House",
+        "Office building",
+        "Convenience store",
+        "Tree",
+        "Car",
+        "Truck",
+        "Van",
+        "Wheel",
+        "Tire",
+        "Street light",
+        "Parking meter",
+        "Traffic light"
+    ]
 
     def __init__(self, trainingNumber):
         trainingNumber = int(trainingNumber)
+
+        if fo.dataset_exists(self.DATA_SET_NAME):
+            print(f"\n前回のFiftyOneデータベースを削除します。")
+            fo.delete_dataset(self.DATA_SET_NAME)
+            print("前回のFiftyOneデータセットを削除しました。")
         
         if os.path.exists(self.BACKGROUND_IMAGE_DIR):
             print("\n前回の背景画像を削除します。")
@@ -91,33 +117,33 @@ class DATA_SET:
     def downloadBackgroundImage(self, trainingNumber):
         metaData = {"imagePath": []}
 
-        backgroundImages = foz.load_zoo_dataset(
-            "open-images-v7",
-            split="train",
-            label_types=[],
-            classes = [
-                "Skyscraper",
-                "Tower",
-                "House",
-                "Office building",
-                "Convenience store"
-            ],
-            max_samples = trainingNumber,
-            shuffle = True
-        )
+        try:
+            backgroundImages = foz.load_zoo_dataset(
+                "open-images-v7",
+                split="validation",
+                label_types=["detections"],
+                classes = self.TARGET_CLASS,
+                max_samples = trainingNumber,
+                only_matching = True,
+                shuffle = True
+            )
+            backgroundImages.name = self.DATA_SET_NAME
 
-        backgroundImages.name = self.DATA_SET_NAME
-
-        for fname in sorted(os.listdir(self.BACKGROUND_IMAGE_DIR)):
-            if fname.lower().endswith((".jpg", ".jpeg", ".png")):
-                dstPath = os.path.join(self.BACKGROUND_IMAGE_DIR, fname)
-                metaData["imagePath"].append(dstPath.replace("\\", "/"))
+        except Exception as e:
+            raise RuntimeError("ERROR: FiftyOneデータベースの読み込みに失敗しました。")
 
         try:
+            print(f"ダウンロードした背景画像数: {len(backgroundImages)}")
+
+            for sample in backgroundImages:
+                dstPath = sample.filepath
+                metaData["imagePath"].append(dstPath.replace("\\", "/"))
+        
             with open (f"{self.BACKGROUND_IMAGE_DIR}/metaData.json", "w", encoding="utf-8") as f:
                 json.dump(metaData, f, ensure_ascii=False)
         except Exception as e:
             raise RuntimeError("ERROR: メタデータの保存に失敗しました。")
+            
         return
     
     def pickBackgroundImage(self):
@@ -164,122 +190,94 @@ class DATA_SET:
 
         BACKGROUND_WIDTH = background.size[0]
         BACKGROUND_HEIGHT = background.size[1]
-        isHorizontal = BACKGROUND_WIDTH > BACKGROUND_HEIGHT or BACKGROUND_WIDTH == BACKGROUND_HEIGHT
-        isVertical = BACKGROUND_WIDTH < BACKGROUND_HEIGHT
-        LICENSE_PLATE_WIDTH = LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_WIDTH
-        LICENSE_PLATE_HEIGHT = LICENSE_PLATE.LICENSE_PLATE.LICENSE_PLATE_HEIGHT
-        MARGIN = 10
-        cellWidth = 0
-        cellHeight = 0
-        startCoordinateForEachLicensePlate = []
-        startXCoordinate = 0
-        startYCoordinate = 0
-        isUsed = False
+        MARGIN = self.MARGIN
         labels = []
-        
         drawingInfoList = []
-        
-        if isHorizontal:
-            cellWidth = BACKGROUND_WIDTH // self.MAX_CELLS_PER_IMAGE
-            cellHeight = BACKGROUND_HEIGHT
-        elif isVertical:
-            cellWidth = BACKGROUND_WIDTH
-            cellHeight = BACKGROUND_HEIGHT // self.MAX_CELLS_PER_IMAGE
-
-        for _ in range(self.MAX_CELLS_PER_IMAGE):
-            if isHorizontal:
-                cellX = startXCoordinate + MARGIN
-                cellY = random.randint(MARGIN, max(MARGIN, cellHeight - LICENSE_PLATE_HEIGHT - MARGIN))
-                startXCoordinate += cellWidth
-            else:
-                cellX = random.randint(MARGIN, max(MARGIN, cellWidth - LICENSE_PLATE_WIDTH - MARGIN))
-                cellY = startYCoordinate + random.randint(MARGIN, max(MARGIN, cellHeight - LICENSE_PLATE_HEIGHT - MARGIN))
-                startYCoordinate += cellHeight
-            
-            startCoordinateForEachLicensePlate.append((cellX, cellY , isUsed))
+        placed_boxes = []
 
         for i, licensePlatePath in enumerate(licensePlatePaths):
-            licensePlate = Image.open(licensePlatePath).convert("RGBA")
-
-            rotateOrNot = random.randint(0, 2)
+            originalLicensePlate = Image.open(licensePlatePath).convert("RGBA")
+            
+            scale = random.uniform(self.MIN_SCALE, self.MAX_SCALE)
+            
+            newWidth_base = max(1, int(originalLicensePlate.size[0] * scale))
+            newHeight_base = max(1, int(originalLicensePlate.size[1] * scale))
+            
+            tempLicensePlate = originalLicensePlate.resize((newWidth_base, newHeight_base), Image.Resampling.LANCZOS)
+            
             rotationXAngle = 0
             rotationYAngle = 0
-
-            originalCorners = np.float32([
-                [0, 0],
-                [licensePlate.size[0] - 1, 0],
-                [licensePlate.size[0] - 1, licensePlate.size[1] - 1],
-                [0, licensePlate.size[1] - 1]
-            ])
-            transformedCorners = originalCorners.copy()
-
-            licensePlateXMinInRotated = 0.0
-            licensePlateYMinInRotated = 0.0
-            licensePlateXMaxInRotated = float(licensePlate.size[0])
-            licensePlateYMaxInRotated = float(licensePlate.size[1])
             
-            if rotateOrNot == 1:
+            if random.random() < 0.5:
                 rotationXAngle = random.randint(-30, 30)
-                if rotationXAngle != 0:
-                    (licensePlate, licensePlateXMinInRotated, licensePlateYMinInRotated, licensePlateXMaxInRotated, licensePlateYMaxInRotated, transformedCorners) = self.rotateLicensePlate(licensePlate, rotationXAngle, 0, originalCorners)
-            elif rotateOrNot == 2:
+            if random.random() < 0.5:
                 rotationYAngle = random.randint(-30, 30)
-                if rotationYAngle != 0:
-                    (licensePlate, licensePlateXMinInRotated, licensePlateYMinInRotated, licensePlateXMaxInRotated, licensePlateYMaxInRotated, transformedCorners) = self.rotateLicensePlate(licensePlate, 0, rotationYAngle, originalCorners)
 
-            currentLicensePlateWidth = licensePlate.size[0]
-            currentLicensePlateHeight = licensePlate.size[1]
+            (
+                rotatedLicensePlate, 
+                lp_x_min_rot, lp_y_min_rot, 
+                lp_x_max_rot, lp_y_max_rot, 
+                transformedCorners
+            ) = self.rotateLicensePlate(tempLicensePlate, rotationXAngle, rotationYAngle)
             
-            maxLicensePlateWidth = max(1, cellWidth - (MARGIN * 2))
-            maxLicensePlateHeight = max(1, cellHeight - (MARGIN * 2))
+            boxWidth = lp_x_max_rot - lp_x_min_rot
+            boxHeight = lp_y_max_rot - lp_y_min_rot
 
-            scale = 1.0
-            if currentLicensePlateWidth > maxLicensePlateWidth or currentLicensePlateHeight > maxLicensePlateHeight:
-                scale = min(maxLicensePlateWidth / currentLicensePlateWidth, maxLicensePlateHeight / currentLicensePlateHeight)
-                newLicensePlateWidth = max(1, int(currentLicensePlateWidth * scale))
-                newLicensePlateHeight = max(1, int(currentLicensePlateHeight * scale))
+            placed = False
+            for _ in range(self.MAX_PLACEMENT_ATTEMPTS):
+                max_x = BACKGROUND_WIDTH - int(boxWidth) - MARGIN
+                max_y = BACKGROUND_HEIGHT - int(boxHeight) - MARGIN
+                
+                if max_x > MARGIN and max_y > MARGIN:
+                    licensePlateX = random.randint(MARGIN, max_x)
+                    licensePlateY = random.randint(MARGIN, max_y)
+                else:
+                    break 
 
-                licensePlateXMinInRotated *= scale
-                licensePlateYMinInRotated *= scale
-                licensePlateXMaxInRotated *= scale
-                licensePlateYMaxInRotated *= scale
-                transformedCorners *= scale 
+                current_box = [
+                    licensePlateX, 
+                    licensePlateY,
+                    licensePlateX + int(boxWidth),
+                    licensePlateY + int(boxHeight)
+                ]
 
-                licensePlate = licensePlate.resize((newLicensePlateWidth, newLicensePlateHeight), Image.Resampling.LANCZOS)
+                overlap = False
+                for placed_box in placed_boxes:
+                    if self.checkOverlap(current_box, placed_box):
+                        overlap = True
+                        break
+                
+                if not overlap:
+                    placed_boxes.append(current_box)
+                    placed = True
+                    break
+            
+            if not placed:
+                continue             
 
-                currentLicensePlateWidth = licensePlate.size[0]
-                currentLicensePlateHeight = licensePlate.size[1]
+            pasteX = licensePlateX - int(lp_x_min_rot)
+            pasteY = licensePlateY - int(lp_y_min_rot)
+            
+            background.paste(rotatedLicensePlate, (pasteX, pasteY), rotatedLicensePlate)
 
-            if i < len(startCoordinateForEachLicensePlate):
-                licensePlateX = startCoordinateForEachLicensePlate[i][0]
-                licensePlateY = startCoordinateForEachLicensePlate[i][1]
-            else:
-                licensePlateX = random.randint(MARGIN, max(MARGIN, BACKGROUND_WIDTH - licensePlate.size[0] - MARGIN))
-                licensePlateY = random.randint(MARGIN, max(MARGIN, BACKGROUND_HEIGHT - licensePlate.size[1] - MARGIN))
-
-            background.paste(licensePlate, (licensePlateX, licensePlateY), licensePlate)
-
-            boxWidth  = licensePlateXMaxInRotated - licensePlateXMinInRotated
-            boxHeight = licensePlateYMaxInRotated - licensePlateYMinInRotated
-
-            absoluteXCenter = float(licensePlateX) + licensePlateXMinInRotated + (boxWidth / 2.0)
-            absoluteYCenter = float(licensePlateY) + licensePlateYMinInRotated + (boxHeight / 2.0)
+            absoluteXCenter = float(licensePlateX) + (boxWidth / 2.0)
+            absoluteYCenter = float(licensePlateY) + (boxHeight / 2.0)
             
             classIdRoman = LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN[licensePlateClasses[i]]
 
-            drawingCorners = []
+            drawingCorners_final = []
             for corner in transformedCorners:
-                cornerX = int(round(licensePlateX + corner[0]))
-                cornerY = int(round(licensePlateY + corner[1]))
-                drawingCorners.append((cornerX, cornerY))
+                cornerX = int(round(pasteX + corner[0]))
+                cornerY = int(round(pasteY + corner[1]))
+                drawingCorners_final.append((cornerX, cornerY))
 
             drawingInfo = self.getBoxAndLabelDrawingInfo(
                 classId = classIdRoman,
-                drawingCorners = drawingCorners,
+                drawingCorners = drawingCorners_final,
                 classIdRoman = classIdRoman,
-                xMinAABB = int(round(licensePlateX + licensePlateXMinInRotated)),
-                yMinAABB = int(round(licensePlateY + licensePlateYMinInRotated)),
-                yMaxAABB = int(round(licensePlateY + licensePlateYMaxInRotated))
+                xMinAABB = current_box[0],
+                yMinAABB = current_box[1],
+                yMaxAABB = current_box[3]
             )
             drawingInfoList.append(drawingInfo)
 
@@ -290,7 +288,7 @@ class DATA_SET:
             width = boxWidth / BACKGROUND_WIDTH
             height = boxHeight / BACKGROUND_HEIGHT
             labels.append(f"{classIdInt} {xCenter:.6f} {yCenter:.6f} {width:.6f} {height:.6f}")
-                        
+            
         randomNumber = random.randint(0, 1)
         if randomNumber > 0:
             levelOfNoise = random.randint(1, 5)
@@ -313,6 +311,19 @@ class DATA_SET:
         image = Image.fromarray(npBackground)
 
         return image, labels
+    
+    def checkOverlap(self, box1, box2):
+        xMin1, yMin1, xMax1, yMax1 = box1
+        xMin2, yMin2, xMax2, yMax2 = box2
+
+        noOverlap = (
+            xMax1 < xMin2 or 
+            xMax2 < xMin1 or 
+            yMax1 < yMin2 or 
+            yMax2 < yMin1
+        )  
+
+        return not noOverlap
 
     def makeNoise(self, background, levelOfNoise):
         npBackground = np.array(background)
@@ -340,7 +351,7 @@ class DATA_SET:
 
         return Image.fromarray(rgbBackground)
     
-    def rotateLicensePlate(self, licensePlate, rotationXAngle, rotationYAngle, originalCorners):
+    def rotateLicensePlate(self, licensePlate, rotationXAngle, rotationYAngle):
         npLicensePlate = np.array(licensePlate)
         licensePlateHeight, licensePlateWidth = npLicensePlate.shape[:2]
         focalLength = max(licensePlateWidth, licensePlateHeight) * 1.5 
@@ -373,7 +384,9 @@ class DATA_SET:
 
         finalRotationMatrix = np.identity(3)
 
-        if rotationXAngle != 0:
+        if rotationXAngle != 0 and rotationYAngle != 0:
+            finalRotationMatrix = rotationYMatrix @ rotationXMatrix
+        elif rotationXAngle != 0:
             finalRotationMatrix = rotationXMatrix
         elif rotationYAngle != 0:
             finalRotationMatrix = rotationYMatrix
@@ -400,7 +413,7 @@ class DATA_SET:
         try: 
             matrix = cv2.getPerspectiveTransform(srcPoint, dstPoint)
         except cv2.error as e:
-            raise RuntimeError("再度生成してください。")
+            return (licensePlate, 0.0, 0.0, float(licensePlateWidth), float(licensePlateHeight), srcPoint)
 
         licensePlatePositionTransformed = cv2.perspectiveTransform(srcPoint.reshape(-1, 1, 2), matrix)
         
@@ -423,11 +436,8 @@ class DATA_SET:
         )
 
         finalMatrix = matrixShift @ matrix
-
-        if np.linalg.det(finalMatrix) == 0:
-            return (licensePlate, 0.0, 0.0, float(licensePlateWidth), float(licensePlateHeight), originalCorners)
-
-        transformedCorners = cv2.perspectiveTransform(originalCorners.reshape(-1, 1, 2), finalMatrix)[:, 0, :]
+        
+        transformedCorners = cv2.perspectiveTransform(srcPoint.reshape(-1, 1, 2), finalMatrix)[:, 0, :]
         transformedCorners[:, 0] += 0.5 
         transformedCorners[:, 1] += 0.5 
         
@@ -448,7 +458,7 @@ class DATA_SET:
             maxLicensePlateYCoordinate,
             transformedCorners
         )
-    
+
     def getBoxAndLabelDrawingInfo(self, classId, drawingCorners, classIdRoman, xMinAABB, yMinAABB, yMaxAABB):
         romanValue = list(LICENSE_PLATE.LICENSE_PLATE.TYPE_OF_VEHICLE_ROMAN.values())
         classIdInt = romanValue.index(classId)
