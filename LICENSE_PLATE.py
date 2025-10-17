@@ -53,6 +53,12 @@ class LICENSE_PLATE:
 
                 self.generatePlate(trainingNumber, imageNumber, typeOfVehicle, plateBackGroundColor, plateTextColor, officeCode, classNumber, hiraganaCode, registrationNumber, metaData)
 
+                progress = int(imageNumber / trainingNumber * 50)
+                bar = "█" * progress + "-" * (50 - progress)
+                print(f"\r[{bar}] {imageNumber}/{trainingNumber} | {self.TYPE_OF_VEHICLE_STRING[typeOfVehicle]}", end="", flush=True)
+            
+            print("\n")
+
         try:
             with open(LICENSE_PLATE.LICENSE_PLATE_DIR + "/metaData.json", "w", encoding="utf-8") as f:
                 json.dump(metaData, f, ensure_ascii = False, indent = len(self.TYPE_OF_VEHICLE_STRING))
