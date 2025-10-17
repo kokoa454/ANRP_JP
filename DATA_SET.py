@@ -97,7 +97,7 @@ class DATA_SET:
         for imageNumber in range(1, trainingNumber + 1):
             backgroundImagePath = self.pickBackgroundImage()
             (licensePlatePaths, licensePlateClasses) = self.pickLicensePlates()
-            self.dataSetImage, self.dataSetLabel = self.createDataSet(backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber)
+            self.dataSetImage, self.dataSetLabel = self.createDataSet(backgroundImagePath, licensePlatePaths, licensePlateClasses)
 
             if imageNumber <= splittedTrainingNumberCount:
                 self.saveDataSet(self.dataSetImage, self.dataSetLabel, trainingNumber, splittedTrainingNumber, isTrain=True)
@@ -106,7 +106,11 @@ class DATA_SET:
                 self.saveDataSet(self.dataSetImage, self.dataSetLabel, trainingNumber, splittedValidationNumber , isTrain=False)
                 splittedValidationNumber += 1
                 
-            print(f"データセット {imageNumber} / {trainingNumber} を生成しました。")
+            progress = int(imageNumber / trainingNumber * 50)
+            bar = "█" * progress + "-" * (50 - progress)
+            print(f"\r[{bar}] {imageNumber}/{trainingNumber}", end="", flush=True)
+
+        print("\n")
         
         print("YAMLファイルを作成しています。")
         self.createYaml()
@@ -120,7 +124,7 @@ class DATA_SET:
         try:
             backgroundImages = foz.load_zoo_dataset(
                 "open-images-v7",
-                split="validation",
+                split="train",
                 label_types=["detections"],
                 classes = self.TARGET_CLASS,
                 max_samples = trainingNumber,
@@ -185,7 +189,7 @@ class DATA_SET:
 
         return (licensePlatePaths, licensePlateClasses)
         
-    def createDataSet(self, backgroundImagePath, licensePlatePaths, licensePlateClasses, imageNumber):
+    def createDataSet(self, backgroundImagePath, licensePlatePaths, licensePlateClasses):
         background = Image.open(backgroundImagePath).convert("RGB")
 
         BACKGROUND_WIDTH = background.size[0]
@@ -208,29 +212,32 @@ class DATA_SET:
             rotationXAngle = 0
             rotationYAngle = 0
             
-            if random.random() < 0.5:
-                rotationXAngle = random.randint(-30, 30)
-            if random.random() < 0.5:
-                rotationYAngle = random.randint(-30, 30)
+            if random.random() < 0.8:
+                rotationXAngle = random.randint(-60, 60)
+            if random.random() < 0.8:
+                rotationYAngle = random.randint(-60, 60)
 
             (
                 rotatedLicensePlate, 
-                lp_x_min_rot, lp_y_min_rot, 
-                lp_x_max_rot, lp_y_max_rot, 
+                licencePlatXMinRot, licencePlateYMinRot, 
+                licencePlateXMaxRot, licencePlateYMaxRot, 
                 transformedCorners
             ) = self.rotateLicensePlate(tempLicensePlate, rotationXAngle, rotationYAngle)
+
+            if random.random() < 0.3:
+                rotatedLicensePlate = self.makeReflectionNoise(rotatedLicensePlate)
             
-            boxWidth = lp_x_max_rot - lp_x_min_rot
-            boxHeight = lp_y_max_rot - lp_y_min_rot
+            boxWidth = licencePlateXMaxRot - licencePlatXMinRot
+            boxHeight = licencePlateYMaxRot - licencePlateYMinRot
 
             placed = False
             for _ in range(self.MAX_PLACEMENT_ATTEMPTS):
-                max_x = BACKGROUND_WIDTH - int(boxWidth) - MARGIN
-                max_y = BACKGROUND_HEIGHT - int(boxHeight) - MARGIN
+                maxX = BACKGROUND_WIDTH - int(boxWidth) - MARGIN
+                maxY = BACKGROUND_HEIGHT - int(boxHeight) - MARGIN
                 
-                if max_x > MARGIN and max_y > MARGIN:
-                    licensePlateX = random.randint(MARGIN, max_x)
-                    licensePlateY = random.randint(MARGIN, max_y)
+                if maxX > MARGIN and maxY > MARGIN:
+                    licensePlateX = random.randint(MARGIN, maxX)
+                    licensePlateY = random.randint(MARGIN, maxY)
                 else:
                     break 
 
@@ -255,8 +262,8 @@ class DATA_SET:
             if not placed:
                 continue             
 
-            pasteX = licensePlateX - int(lp_x_min_rot)
-            pasteY = licensePlateY - int(lp_y_min_rot)
+            pasteX = licensePlateX - int(licencePlatXMinRot)
+            pasteY = licensePlateY - int(licencePlateYMinRot)
             
             background.paste(rotatedLicensePlate, (pasteX, pasteY), rotatedLicensePlate)
 
@@ -324,7 +331,40 @@ class DATA_SET:
         )  
 
         return not noOverlap
+    
+    def makeReflectionNoise(self, licencePlate):
+        if licencePlate.mode != "RGBA":
+            licencePlate = licencePlate.convert("RGBA")
 
+        licencePlateWidth = licencePlate.size[0]
+        licencePlateHeight = licencePlate.size[1]
+
+        alpha = random.randint(30, 80)
+        centerX = random.randint(licencePlateWidth // 4, licencePlateWidth * 3 // 4)
+        centerY = random.randint(licencePlateHeight // 4, licencePlateHeight * 3 // 4)
+        
+        axesX = random.randint(licencePlateWidth // 8, licencePlateWidth // 2)
+        axesY = random.randint(licencePlateHeight // 8, licencePlateHeight // 2)
+
+        npReflection = np.zeros((licencePlateHeight, licencePlateWidth, 4), dtype=np.uint8)
+
+        cv2.ellipse(
+            npReflection,
+            center=(centerX, centerY),
+            axes=(axesX, axesY),
+            angle=random.randint(0, 180),
+            startAngle=0,
+            endAngle=360,
+            color=(255, 255, 255, alpha),
+            thickness=-1
+        )
+
+        reflection = Image.fromarray(npReflection, "RGBA")
+
+        blendedLicencePlate = Image.alpha_composite(licencePlate, reflection)
+
+        return blendedLicencePlate
+    
     def makeNoise(self, background, levelOfNoise):
         npBackground = np.array(background)
         noise = np.random.randint(-levelOfNoise * 10, levelOfNoise * 10, npBackground.shape, dtype='int16')
