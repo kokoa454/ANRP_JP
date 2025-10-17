@@ -1,6 +1,7 @@
 import LICENSE_PLATE 
 import DATA_SET
 import TRAIN
+import TEST
 
 def main():
     print("【ANRP_JP】\n")
@@ -10,14 +11,15 @@ def main():
         0: ナンバープレート生成
         1: データセット生成
         2: 学習
-        3: 終了
+        3: テスト
+        4: 終了
         )\n""")
 
         try:
             selectedNum = int(input("作業番号?: "))
             
-            if selectedNum not in [0, 1, 2, 3]:
-                print("0~3の数字を入力してください。\n")
+            if selectedNum not in [0, 1, 2, 3, 4]:
+                print("0~4の数字を入力してください。\n")
                 continue
         except ValueError:
             print("数字を入力してください。\n")
@@ -68,9 +70,26 @@ def main():
             print("\n")
 
         elif selectedNum == 3:
+            try:
+                confNumber = int(input("推論精度(%)?: "))
+
+                if confNumber < 1:
+                    print("1以上の数字を入力してください。\n")
+                    continue
+                elif confNumber > 100:
+                    print("100以下の数字を入力してください。\n")
+                    continue
+            except ValueError:
+                print("数字を入力してください。\n")
+                continue
+
+            TEST.TEST(confNumber)
+            print("\n")
+
+        elif selectedNum == 4:
             break
     
         else:
-            print("0~3の数字を入力してください。\n")
+            print("0~4の数字を入力してください。\n")
 
 main()
