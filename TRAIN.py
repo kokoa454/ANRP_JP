@@ -77,7 +77,7 @@ class TRAIN:
             if(torch.cuda.is_available()): # ultralyticsをインストール後、pytorchがcpu版の場合、pytorchを新たに再インストール(cuda13.0だったらcu130)を行う必要がある
                 device = 0
             else:
-                device = 1
+                device = "cpu"
             results = self.MODEL.train(
                     data = self.DATA_PATH,
                     epochs = trainingNumber,
