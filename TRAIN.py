@@ -45,7 +45,7 @@ class TRAIN:
                         self.OUTPUT_DIR,
                         latest_folder_name,
                         "weights",
-                        "last.pt"
+                        "best.pt"
                     )
                     
                     if os.path.exists(self.LAST_PT_PATH):
@@ -56,9 +56,9 @@ class TRAIN:
                     self.MODEL = YOLO(self.MODEL_TO_LOAD)
                     print(f"前回の学習結果（{self.MODEL_TO_LOAD}）を読み込みました。")
 
-                elif os.path.exists(os.path.join(self.OUTPUT_DIR, "license_plate_11n", "weights", "last.pt")):
-                    self.MODEL = YOLO(os.path.join(self.OUTPUT_DIR, "license_plate_11n", "weights", "last.pt"))
-                    print(f"前回の学習結果(license_plate_11n/weights/last.pt)を読み込みました。")
+                elif os.path.exists(os.path.join(self.OUTPUT_DIR, "license_plate_11n", "weights", "best.pt")):
+                    self.MODEL = YOLO(os.path.join(self.OUTPUT_DIR, "license_plate_11n", "weights", "best.pt"))
+                    print(f"前回の学習結果(license_plate_11n/weights/best.pt)を読み込みました。")
 
                 else:
                     self.MODEL = YOLO("yolo11n.pt")
@@ -74,10 +74,12 @@ class TRAIN:
             raise RuntimeError("ERROR: モデルが見つかりません。")
 
         try:
-            if(torch.cuda.is_available()): # ultralyticsをインストール後、pytorchがcpu版の場合、pytorchを新たに再インストール(cuda13.0だったらcu130)を行う必要がある
+            if(torch.cuda.is_available()): # ultralyticsをインストール後、pytorchがcpu版の場合、pytorchだけを一度消し、pytorchだけを新たに再インストール(cuda13.0だったらcu130)を行う必要がある
                 device = 0
+                print("GPUで学習を始めます。")
             else:
                 device = "cpu"
+                print("CPUで学習を始めます。")
             results = self.MODEL.train(
                     data = self.DATA_PATH,
                     epochs = trainingNumber,
@@ -87,7 +89,8 @@ class TRAIN:
                     name = self.NAME,
                     project = self.PROJECT_PATH,
                     workers = 0,
-                    device = device
+                    device = device,
+                    cache = True
                 )
         except RuntimeError:
             raise RuntimeError("ERROR: 学習に失敗しました。")
